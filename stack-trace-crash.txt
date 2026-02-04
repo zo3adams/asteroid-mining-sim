@@ -1,0 +1,107 @@
+[Log] ✓ Loaded texture for S-type asteroid (TextureLoader.ts, line 157, x27)
+[Log] ✓ Loaded texture for C-type asteroid (TextureLoader.ts, line 157, x5)
+[Warning] Failed to load texture: /textures/asteroids/undefined – Event (TextureLoader.ts, line 44)
+Event
+[Error] Unhandled Promise Rejection: [object Event] (x2)
+[Log] Game initialized! (main.ts, line 108)
+[Error] RangeError: Maximum call stack size exceeded.
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)
+	updateMarket (main.ts:1255)
+	(anonymous function) (main.ts:1244)
+	forEach
+	(anonymous function) (GameState.ts:66)
+	forEach
+	notify (GameState.ts:65)
+	update (GameState.ts:77)

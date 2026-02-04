@@ -1,0 +1,2842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroid Miner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --hud-cyan: #54e6ff;
+            --hud-cyan2: #1aa9ff;
+            --hud-blue: #4da6ff;
+            --glass: rgba(10, 18, 28, 0.65);
+            --glass2: rgba(255, 255, 255, 0.08);
+            --stroke: rgba(84, 230, 255, 0.35);
+            --stroke2: rgba(255, 255, 255, 0.12);
+            --glow: rgba(84, 230, 255, 0.45);
+            --text: rgba(235, 245, 255, 0.92);
+            --text-muted: rgba(180, 200, 220, 0.7);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: radial-gradient(ellipse at 20% 10%, #0a1220 0%, #050810 50%, #020408 100%);
+            color: var(--text);
+            overflow: hidden;
+            font-weight: 400;
+        }
+
+        #app {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* WebGL Canvas */
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD Container */
+        .hud {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .hud * {
+            pointer-events: auto;
+        }
+
+        /* Top Bar */
+        #top-bar {
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03)), var(--glass);
+            border-bottom: 1px solid var(--stroke);
+            box-shadow:
+                0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 24px rgba(84, 230, 255, 0.12),
+                0 0 0 1px rgba(0, 0, 0, 0.22) inset;
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        #game-title {
+            font-weight: 700;
+            color: var(--hud-cyan);
+            font-size: 20px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(84, 230, 255, 0.5);
+        }
+
+        #save-url-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #save-url-input {
+            background: rgba(10, 18, 28, 0.5);
+            border: 1px solid rgba(84, 230, 255, 0.25);
+            color: var(--text);
+            padding: 6px 12px;
+            font-family: 'Rajdhani', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            width: 400px;
+            border-radius: 6px;
+            backdrop-filter: blur(8px);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        #save-url-input:focus {
+            outline: none;
+            border-color: var(--hud-cyan);
+            box-shadow: 0 0 12px rgba(84, 230, 255, 0.3);
+        }
+
+        #copy-save-btn {
+            appearance: none;
+            background: rgba(10, 18, 28, 0.4);
+            border: 1px solid rgba(84, 230, 255, 0.35);
+            color: var(--text);
+            padding: 6px 16px;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+            font-size: 12px;
+            border-radius: 6px;
+            backdrop-filter: blur(10px);
+            transition: all 0.15s ease;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+        }
+
+        #copy-save-btn:hover {
+            border-color: rgba(84, 230, 255, 0.6);
+            background: rgba(10, 18, 28, 0.6);
+            box-shadow:
+                0 0 18px rgba(84, 230, 255, 0.2),
+                0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+            transform: translateY(-1px);
+        }
+
+        #copy-save-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Time Slider */
+        #time-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: rgba(84, 230, 255, 0.2);
+            outline: none;
+            border-radius: 2px;
+            box-shadow: 0 0 8px rgba(84, 230, 255, 0.1) inset;
+        }
+
+        #time-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--hud-cyan);
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow:
+                0 0 12px rgba(84, 230, 255, 0.6),
+                0 0 4px rgba(84, 230, 255, 0.4) inset;
+            transition: transform 0.15s ease;
+        }
+
+        #time-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        #time-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: var(--hud-cyan);
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+            box-shadow:
+                0 0 12px rgba(84, 230, 255, 0.6),
+                0 0 4px rgba(84, 230, 255, 0.4) inset;
+            transition: transform 0.15s ease;
+        }
+
+        #time-slider::-moz-range-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        #time-display {
+            color: var(--hud-cyan);
+            font-weight: 600;
+        }
+
+        /* Breadcrumb */
+        #breadcrumb-link {
+            color: var(--hud-cyan);
+            transition: all 0.2s ease;
+        }
+
+        #breadcrumb-link:hover {
+            text-shadow: 0 0 12px rgba(84, 230, 255, 0.7);
+            text-decoration: none;
+        }
+
+        /* Side Panels */
+        #left-panel {
+            top: 50px;
+            left: 0;
+            width: 320px;
+            bottom: 70px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)), var(--glass);
+            border-right: 1px solid var(--stroke);
+            padding: 24px;
+            overflow-y: auto;
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            box-shadow:
+                8px 0 32px rgba(0, 0, 0, 0.5),
+                0 0 24px rgba(84, 230, 255, 0.08),
+                0 0 0 1px rgba(0, 0, 0, 0.22) inset;
+        }
+
+        #left-panel::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            right: -1px;
+            bottom: 0;
+            width: 1px;
+            background: linear-gradient(180deg, transparent, var(--hud-cyan) 20%, var(--hud-cyan) 80%, transparent);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        #right-panel {
+            top: 50px;
+            right: 0;
+            width: 320px;
+            bottom: 70px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)), var(--glass);
+            border-left: 1px solid var(--stroke);
+            padding: 24px;
+            overflow-y: auto;
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            box-shadow:
+                -8px 0 32px rgba(0, 0, 0, 0.5),
+                0 0 24px rgba(84, 230, 255, 0.08),
+                0 0 0 1px rgba(0, 0, 0, 0.22) inset;
+        }
+
+        #right-panel::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -1px;
+            bottom: 0;
+            width: 1px;
+            background: linear-gradient(180deg, transparent, var(--hud-cyan) 20%, var(--hud-cyan) 80%, transparent);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .panel-section {
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .panel-section h3 {
+            color: var(--hud-cyan);
+            margin-bottom: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.3);
+            padding-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-section h3::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            background: var(--hud-cyan);
+            border-radius: 1px;
+            box-shadow: 0 0 8px rgba(84, 230, 255, 0.8);
+        }
+
+        .panel-section p {
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 6px;
+            font-weight: 400;
+        }
+
+        .panel-section .label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* News Ticker */
+        #news-ticker {
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)), var(--glass);
+            border-top: 1px solid var(--stroke);
+            box-shadow:
+                0 -8px 32px rgba(0, 0, 0, 0.6),
+                0 0 24px rgba(84, 230, 255, 0.08),
+                0 0 0 1px rgba(0, 0, 0, 0.22) inset;
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            overflow: hidden;
+        }
+
+        #news-ticker::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: -1px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--hud-cyan) 50%, transparent);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        #ticker-content {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            white-space: nowrap;
+            animation: scroll-left 60s linear infinite;
+            padding: 0 24px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        @keyframes scroll-left {
+            0% {
+                transform: translateX(100%);
+            }
+            100% {
+                transform: translateX(-100%);
+            }
+        }
+
+        #ticker-content:hover {
+            animation-play-state: paused;
+        }
+
+        .ticker-item {
+            margin-right: 60px;
+            display: inline-block;
+            position: relative;
+            padding-left: 16px;
+        }
+
+        .ticker-item::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 1px;
+        }
+
+        .ticker-critical {
+            color: #ff4466;
+            font-weight: 700;
+        }
+
+        .ticker-critical::before {
+            background: #ff4466;
+            box-shadow: 0 0 8px #ff4466;
+        }
+
+        .ticker-important {
+            color: #ffaa44;
+            font-weight: 700;
+        }
+
+        .ticker-important::before {
+            background: #ffaa44;
+            box-shadow: 0 0 8px #ffaa44;
+        }
+
+        .ticker-market {
+            color: var(--hud-cyan);
+            font-weight: 600;
+        }
+
+        .ticker-market::before {
+            background: var(--hud-cyan);
+            box-shadow: 0 0 8px var(--hud-cyan);
+        }
+
+        .ticker-flavor {
+            color: var(--text-muted);
+        }
+
+        .ticker-flavor::before {
+            background: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        /* Buttons */
+        .btn {
+            appearance: none;
+            background: rgba(10, 18, 28, 0.4);
+            border: 1px solid rgba(84, 230, 255, 0.35);
+            color: var(--text);
+            padding: 10px 16px;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 12px;
+            display: block;
+            width: 100%;
+            border-radius: 6px;
+            backdrop-filter: blur(10px);
+            transition: all 0.15s ease;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+            letter-spacing: 0.02em;
+        }
+
+        .btn:hover:not(:disabled) {
+            border-color: rgba(84, 230, 255, 0.6);
+            background: rgba(10, 18, 28, 0.6);
+            box-shadow:
+                0 0 18px rgba(84, 230, 255, 0.2),
+                0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+            transform: translateY(-1px);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            border-color: rgba(180, 200, 220, 0.2);
+        }
+
+        /* Search Box */
+        .search-container {
+            position: relative;
+            margin-top: 12px;
+        }
+
+        #body-search {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(10, 18, 28, 0.5);
+            border: 1px solid rgba(84, 230, 255, 0.3);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 13px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+
+        #body-search:focus {
+            border-color: rgba(84, 230, 255, 0.6);
+            box-shadow: 0 0 12px rgba(84, 230, 255, 0.2);
+        }
+
+        #body-search::placeholder {
+            color: var(--text-muted);
+        }
+
+        #search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(10, 18, 28, 0.95);
+            border: 1px solid rgba(84, 230, 255, 0.3);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        #search-suggestions.visible {
+            display: block;
+        }
+
+        .search-suggestion {
+            padding: 10px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.1);
+            transition: background 0.1s ease;
+        }
+
+        .search-suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .search-suggestion:hover,
+        .search-suggestion.selected {
+            background: rgba(84, 230, 255, 0.15);
+        }
+
+        .search-suggestion .body-type {
+            color: var(--text-muted);
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        /* Help Section */
+        .help-tip-container {
+            background: rgba(10, 18, 28, 0.4);
+            border: 1px solid rgba(84, 230, 255, 0.2);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+
+        .help-tip-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        .help-more-link {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: underline;
+            opacity: 0.8;
+            transition: opacity 0.15s ease;
+        }
+
+        .help-more-link:hover {
+            opacity: 1;
+        }
+
+        /* Help Modal */
+        .help-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+
+        .help-modal-overlay.visible {
+            display: flex;
+        }
+
+        .help-modal-content {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)), var(--glass);
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow:
+                0 24px 64px rgba(0, 0, 0, 0.6),
+                0 0 32px rgba(84, 230, 255, 0.15),
+                0 0 0 1px rgba(0, 0, 0, 0.3) inset;
+        }
+
+        .help-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.3);
+        }
+
+        .help-modal-title {
+            color: var(--hud-cyan);
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .help-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 28px;
+            cursor: pointer;
+            padding: 4px 8px;
+            line-height: 1;
+            transition: color 0.15s ease;
+        }
+
+        .help-modal-close:hover {
+            color: var(--text);
+        }
+
+        .help-section {
+            margin-bottom: 24px;
+        }
+
+        .help-section-title {
+            color: var(--hud-cyan);
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+
+        .help-walkthrough {
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--text);
+        }
+
+        .help-walkthrough p {
+            margin-bottom: 12px;
+        }
+
+        .help-walkthrough strong {
+            color: var(--hud-cyan);
+        }
+
+        .help-tips-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .help-tips-list li {
+            background: rgba(10, 18, 28, 0.4);
+            border: 1px solid rgba(84, 230, 255, 0.15);
+            border-radius: 6px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        .help-tips-list li::before {
+            content: "💡 ";
+        }
+
+        .help-references-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .help-references-list li {
+            margin-bottom: 12px;
+        }
+
+        .help-reference-link {
+            color: var(--hud-cyan);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .help-reference-link:hover {
+            text-decoration: underline;
+        }
+
+        .help-reference-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Progression Levels */
+        .help-progression-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .progression-level {
+            background: rgba(10, 18, 28, 0.4);
+            border: 1px solid rgba(84, 230, 255, 0.15);
+            border-radius: 6px;
+            padding: 12px 14px;
+        }
+
+        .progression-level.current {
+            border-color: rgba(84, 230, 255, 0.5);
+            background: rgba(84, 230, 255, 0.1);
+        }
+
+        .progression-level-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .progression-level-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--hud-cyan);
+        }
+
+        .progression-level-range {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .progression-level-desc {
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .progression-level-goal {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Tech Tree */
+        .tech-categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+        }
+
+        .tech-category {
+            background: rgba(10, 18, 28, 0.6);
+            border: 1px solid rgba(84, 230, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .tech-category-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.15);
+        }
+
+        .tech-category-icon {
+            font-size: 18px;
+        }
+
+        .tech-category-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--hud-cyan);
+        }
+
+        .tech-node {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(84, 230, 255, 0.15);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tech-node:hover {
+            border-color: rgba(84, 230, 255, 0.4);
+            background: rgba(84, 230, 255, 0.05);
+        }
+
+        .tech-node.unlocked {
+            border-color: rgba(100, 255, 100, 0.4);
+            background: rgba(100, 255, 100, 0.1);
+        }
+
+        .tech-node.available {
+            border-color: rgba(84, 230, 255, 0.5);
+            cursor: pointer;
+        }
+
+        .tech-node.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .tech-node-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .tech-node.unlocked .tech-node-name {
+            color: #8f8;
+        }
+
+        .tech-node-effect {
+            font-size: 10px;
+            color: var(--hud-cyan);
+            margin-bottom: 4px;
+        }
+
+        .tech-node-cost {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .tech-node.unlocked .tech-node-cost {
+            color: #8f8;
+        }
+
+        .tech-node-cost.can-afford {
+            color: #8f8;
+        }
+
+        .tech-node-cost.cannot-afford {
+            color: #f88;
+        }
+
+        .tech-effects-summary {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .tech-effect-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .tech-effect-value {
+            color: #8f8;
+        }
+
+        .tech-effect-value.neutral {
+            color: var(--text-muted);
+        }
+
+        /* Asset System Styles */
+        .asset-category {
+            margin-bottom: 24px;
+        }
+
+        .asset-category-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.2);
+        }
+
+        .asset-category-icon {
+            font-size: 18px;
+        }
+
+        .asset-category-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--hud-cyan);
+        }
+
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .asset-card {
+            background: rgba(10, 18, 28, 0.6);
+            border: 1px solid rgba(84, 230, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .asset-card:hover {
+            border-color: rgba(84, 230, 255, 0.5);
+            background: rgba(10, 18, 28, 0.8);
+        }
+
+        .asset-card.owned {
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .asset-card.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .asset-name {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .asset-card.owned .asset-name {
+            color: #4ade80;
+        }
+
+        .asset-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .asset-stats {
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 6px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+        }
+
+        .asset-price {
+            font-weight: 600;
+        }
+
+        .asset-price.can-afford {
+            color: var(--hud-cyan);
+        }
+
+        .asset-price.cannot-afford {
+            color: #f87171;
+        }
+
+        .asset-card.owned .asset-price {
+            color: #4ade80;
+        }
+
+        .asset-breakeven {
+            color: var(--text-muted);
+        }
+
+        .owned-assets-summary {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .owned-assets-summary .owned-count {
+            color: #4ade80;
+            font-weight: 600;
+        }
+
+        /* Storage Depot Styles */
+        .depot-card {
+            background: rgba(10, 18, 28, 0.6);
+            border: 1px solid rgba(84, 230, 255, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .depot-card:hover {
+            border-color: rgba(84, 230, 255, 0.5);
+            background: rgba(10, 18, 28, 0.8);
+        }
+
+        .depot-card.owned {
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .depot-card.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .depot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .depot-name {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 14px;
+        }
+
+        .depot-card.owned .depot-name {
+            color: #4ade80;
+        }
+
+        .depot-location {
+            font-size: 11px;
+            color: var(--hud-cyan);
+        }
+
+        .depot-price {
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .depot-price.can-afford {
+            color: var(--hud-cyan);
+        }
+
+        .depot-price.cannot-afford {
+            color: #f87171;
+        }
+
+        .depot-card.owned .depot-price {
+            color: #4ade80;
+        }
+
+        .depot-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .depot-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            font-size: 11px;
+        }
+
+        .depot-stat {
+            text-align: center;
+            padding: 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+        }
+
+        .depot-stat-label {
+            color: #888;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .depot-stat-value {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .depot-capacity-bar {
+            height: 4px;
+            background: rgba(84, 230, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        .depot-capacity-fill {
+            height: 100%;
+            background: var(--hud-cyan);
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        .depot-capacity-fill.warning {
+            background: #fbbf24;
+        }
+
+        .depot-capacity-fill.full {
+            background: #f87171;
+        }
+
+        /* New depot card enhancements */
+        .depot-owned-status {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+
+        .depot-owned-count {
+            color: #4ade80;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .depot-locked-status {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .depot-buy-btn {
+            background: var(--hud-cyan);
+            color: var(--hud-bg);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .depot-buy-btn:hover {
+            background: #fff;
+            transform: scale(1.02);
+        }
+
+        .depot-buy-btn.cannot-afford {
+            background: rgba(84, 230, 255, 0.3);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .depot-capacity-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(84, 230, 255, 0.2);
+        }
+
+        .depot-capacity-header {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .depot-stored-list {
+            margin-top: 10px;
+        }
+
+        .depot-stored-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.1);
+            font-size: 12px;
+        }
+
+        .stored-resource {
+            flex: 1;
+            color: var(--hud-cyan);
+        }
+
+        .stored-amount {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .stored-value {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        .depot-sell-btn {
+            background: #4ade80;
+            color: #000;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .depot-sell-btn:hover {
+            background: #22c55e;
+            transform: scale(1.05);
+        }
+
+        .depot-empty {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-style: italic;
+            margin-top: 8px;
+        }
+
+        /* Sell Resource Modal */
+        #sell-resource-modal {
+            z-index: 5500;
+        }
+
+        .sell-modal {
+            max-width: 400px;
+        }
+
+        .sell-modal-body {
+            padding: 20px 0;
+        }
+
+        .sell-info {
+            margin-bottom: 20px;
+        }
+
+        .sell-info > div {
+            padding: 6px 0;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.1);
+        }
+
+        .sell-depot {
+            color: var(--text-muted);
+        }
+
+        .sell-available {
+            color: var(--hud-cyan);
+        }
+
+        .sell-price {
+            color: #4ade80;
+        }
+
+        .sell-amount-section {
+            margin-bottom: 20px;
+        }
+
+        .sell-amount-section label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .sell-amount-section input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(84, 230, 255, 0.1);
+            border: 1px solid rgba(84, 230, 255, 0.3);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .sell-amount-section input:focus {
+            outline: none;
+            border-color: var(--hud-cyan);
+        }
+
+        .sell-quick-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .sell-quick {
+            flex: 1;
+            padding: 8px;
+            background: rgba(84, 230, 255, 0.1);
+            border: 1px solid rgba(84, 230, 255, 0.3);
+            border-radius: 4px;
+            color: var(--hud-cyan);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .sell-quick:hover {
+            background: rgba(84, 230, 255, 0.2);
+            border-color: var(--hud-cyan);
+        }
+
+        .sell-total {
+            font-size: 18px;
+            text-align: center;
+            padding: 15px;
+            background: rgba(74, 222, 128, 0.1);
+            border-radius: 6px;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+        }
+
+        .sell-total span {
+            color: #4ade80;
+            font-weight: 700;
+            font-size: 20px;
+        }
+
+        /* Sell Modal Actions */
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(84, 230, 255, 0.3);
+        }
+
+        .modal-btn.secondary {
+            background: transparent;
+            color: var(--hud-cyan);
+            border-color: rgba(84, 230, 255, 0.3);
+        }
+
+        .modal-btn.secondary:hover {
+            background: rgba(84, 230, 255, 0.1);
+            border-color: var(--hud-cyan);
+        }
+
+        .modal-btn.primary {
+            background: rgba(84, 230, 255, 0.2);
+            color: var(--hud-cyan);
+            border-color: var(--hud-cyan);
+        }
+
+        .modal-btn.primary:hover {
+            background: var(--hud-cyan);
+            color: var(--hud-bg);
+        }
+
+        .storage-summary {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .storage-summary .storage-count {
+            color: #4ade80;
+            font-weight: 600;
+        }
+
+        /* Level Up Ceremony */
+        .level-up-overlay {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: 6000;
+        }
+
+        .level-up-overlay:not(.visible) {
+            display: none;
+        }
+
+        .level-up-content {
+            text-align: center;
+            max-width: 600px;
+            padding: 40px 60px;
+            animation: levelUpAppear 0.8s ease-out;
+            background: rgba(10, 15, 26, 0.75);
+            border: 1px solid rgba(84, 230, 255, 0.3);
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        @keyframes levelUpAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(30px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .level-up-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--hud-cyan) 0%, #0088aa 100%);
+            color: #000;
+            padding: 8px 24px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            margin-bottom: 20px;
+            box-shadow: 0 0 30px rgba(84, 230, 255, 0.5);
+        }
+
+        .level-up-title {
+            font-size: 42px;
+            font-weight: 700;
+            color: var(--hud-cyan);
+            margin: 0 0 20px 0;
+            text-shadow: 0 0 40px rgba(84, 230, 255, 0.6);
+            letter-spacing: 0.05em;
+        }
+
+        .level-up-description {
+            font-size: 16px;
+            line-height: 1.7;
+            color: var(--text);
+            margin-bottom: 30px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .level-up-unlocks {
+            background: rgba(84, 230, 255, 0.08);
+            border: 1px solid rgba(84, 230, 255, 0.25);
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .level-up-unlocks h3 {
+            color: var(--hud-cyan);
+            font-size: 14px;
+            margin: 0 0 12px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .level-up-unlocks ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .level-up-unlocks li {
+            color: var(--text);
+            font-size: 14px;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .level-up-unlocks li:last-child {
+            margin-bottom: 0;
+        }
+
+        .level-up-btn {
+            padding: 14px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        /* Loading Screen */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0f1a 0%, #1a2535 50%, #0a121c 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 5000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-title {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--hud-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 30px rgba(84, 230, 255, 0.5);
+        }
+
+        .loading-content-box {
+            background: rgba(10, 15, 26, 0.75);
+            border: 1px solid rgba(84, 230, 255, 0.3);
+            border-radius: 12px;
+            padding: 40px 50px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .loading-level {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 16px;
+        }
+
+        .loading-description {
+            max-width: 600px;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            padding: 0 20px;
+        }
+
+        .loading-progress {
+            width: 300px;
+            height: 4px;
+            background: rgba(84, 230, 255, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .loading-progress-bar {
+            height: 100%;
+            background: var(--hud-cyan);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .loading-status {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Mission Planning Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)), var(--glass);
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 32px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow:
+                0 24px 64px rgba(0, 0, 0, 0.6),
+                0 0 32px rgba(84, 230, 255, 0.15),
+                0 0 0 1px rgba(0, 0, 0, 0.3) inset;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.3);
+        }
+
+        .modal-header h2 {
+            color: var(--hud-cyan);
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: var(--text);
+        }
+
+        .modal-step {
+            display: none;
+        }
+
+        .modal-step.active {
+            display: block;
+        }
+
+        .modal-step h3 {
+            color: var(--hud-cyan);
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .option-card {
+            background: rgba(10, 18, 28, 0.5);
+            border: 1px solid rgba(84, 230, 255, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .option-card:hover {
+            border-color: rgba(84, 230, 255, 0.5);
+            background: rgba(10, 18, 28, 0.7);
+        }
+
+        .option-card.selected {
+            border-color: var(--hud-cyan);
+            background: rgba(84, 230, 255, 0.1);
+            box-shadow: 0 0 16px rgba(84, 230, 255, 0.2);
+        }
+
+        .option-card h4 {
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 600;
+            margin: 0 0 6px 0;
+        }
+
+        .option-card .description {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+
+        .option-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .option-stat {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .option-stat .stat-label {
+            color: var(--text-muted);
+        }
+
+        .option-stat .stat-value {
+            color: var(--hud-cyan);
+            font-weight: 600;
+        }
+
+        .modal-nav {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(84, 230, 255, 0.2);
+        }
+
+        .modal-nav .btn {
+            margin: 0;
+            width: auto;
+            min-width: 120px;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border-color: rgba(180, 200, 220, 0.3);
+        }
+
+        .btn-primary {
+            background: rgba(84, 230, 255, 0.15);
+            border-color: var(--hud-cyan);
+        }
+
+        .summary-section {
+            background: rgba(10, 18, 28, 0.4);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .summary-section h4 {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin: 0 0 8px 0;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 4px 0;
+        }
+
+        .summary-row .label {
+            color: var(--text-muted);
+        }
+
+        .summary-row .value {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .summary-row.total {
+            border-top: 1px solid rgba(84, 230, 255, 0.2);
+            margin-top: 8px;
+            padding-top: 8px;
+        }
+
+        .summary-row.total .value {
+            color: var(--hud-cyan);
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .insufficient-funds {
+            color: #ff4466;
+        }
+
+        /* Contract Card */
+        .contract-card {
+            background: rgba(10, 18, 28, 0.5);
+            border: 1px solid rgba(84, 230, 255, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .contract-card:hover {
+            border-color: rgba(84, 230, 255, 0.5);
+            background: rgba(10, 18, 28, 0.7);
+        }
+
+        .contract-card.selected {
+            border-color: var(--hud-cyan);
+            background: rgba(84, 230, 255, 0.1);
+            box-shadow: 0 0 16px rgba(84, 230, 255, 0.2);
+        }
+
+        .contract-card .vendor-name {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .contract-card .resource-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--hud-cyan);
+            margin-bottom: 8px;
+        }
+
+        .contract-card .contract-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .contract-card .contract-detail {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .contract-card .contract-detail .label {
+            color: var(--text-muted);
+        }
+
+        .contract-card .contract-detail .value {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .contract-card .total-value {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(84, 230, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .contract-card .total-value .value {
+            color: #4f4;
+            font-weight: 700;
+        }
+
+        /* Target suggestion card */
+        .target-card {
+            background: rgba(10, 18, 28, 0.5);
+            border: 1px solid rgba(84, 230, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .target-card:hover {
+            border-color: rgba(84, 230, 255, 0.5);
+            background: rgba(10, 18, 28, 0.7);
+        }
+
+        .target-card.selected {
+            border-color: var(--hud-cyan);
+            background: rgba(84, 230, 255, 0.1);
+        }
+
+        .target-card .target-info {
+            flex: 1;
+        }
+
+        .target-card .target-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .target-card .target-details {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .target-card .target-match {
+            text-align: right;
+        }
+
+        .target-card .match-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .target-card .match-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4f4;
+        }
+
+        /* Active Mission Item */
+        .mission-item {
+            background: rgba(10, 18, 28, 0.4);
+            border: 1px solid rgba(84, 230, 255, 0.2);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .mission-item:hover {
+            border-color: rgba(84, 230, 255, 0.5);
+            background: rgba(10, 18, 28, 0.6);
+        }
+
+        .mission-item.terminal-failure {
+            border-color: rgba(255, 68, 102, 0.5);
+            background: rgba(255, 68, 102, 0.1);
+        }
+
+        .mission-item.terminal-failure .mission-name,
+        .mission-item.terminal-failure .mission-status {
+            color: #ff4466;
+        }
+
+        .mission-item.terminal-success {
+            border-color: rgba(68, 255, 102, 0.5);
+            background: rgba(68, 255, 102, 0.1);
+        }
+
+        .mission-item.terminal-success .mission-name,
+        .mission-item.terminal-success .mission-status {
+            color: #44ff66;
+        }
+
+        .mission-item .mission-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .mission-item .mission-status {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .mission-item .mission-progress {
+            height: 3px;
+            background: rgba(84, 230, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .mission-item .mission-progress-bar {
+            height: 100%;
+            background: var(--hud-cyan);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .mission-item.terminal-failure .mission-progress-bar {
+            background: #ff4466;
+        }
+
+        .mission-item.terminal-success .mission-progress-bar {
+            background: #44ff66;
+        }
+
+        /* Progress bar pulse animation */
+        @keyframes progress-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(84, 230, 255, 0.7); }
+            50% { box-shadow: 0 0 8px 4px rgba(84, 230, 255, 0.4); }
+            100% { box-shadow: 0 0 0 0 rgba(84, 230, 255, 0); }
+        }
+
+        .mission-item .mission-progress.pulse {
+            animation: progress-pulse 0.6s ease-out;
+        }
+
+        /* Phase Modal */
+        .phase-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+        }
+
+        .phase-modal-overlay.visible {
+            display: flex;
+        }
+
+        .phase-modal-content {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)), var(--glass);
+            border: 1px solid var(--stroke);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow:
+                0 24px 64px rgba(0, 0, 0, 0.6),
+                0 0 32px rgba(84, 230, 255, 0.15);
+        }
+
+        .phase-modal-content.failure {
+            border-color: rgba(255, 68, 102, 0.5);
+            box-shadow:
+                0 24px 64px rgba(0, 0, 0, 0.6),
+                0 0 32px rgba(255, 68, 102, 0.3);
+        }
+
+        .phase-modal-content.success {
+            border-color: rgba(68, 255, 102, 0.5);
+            box-shadow:
+                0 24px 64px rgba(0, 0, 0, 0.6),
+                0 0 32px rgba(68, 255, 102, 0.3);
+        }
+
+        .phase-modal-image {
+            width: 100%;
+            max-height: 250px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .phase-modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--hud-cyan);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .phase-modal-content.failure .phase-modal-title {
+            color: #ff4466;
+        }
+
+        .phase-modal-content.success .phase-modal-title {
+            color: #44ff66;
+        }
+
+        .phase-modal-description {
+            font-size: 14px;
+            color: var(--text);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .phase-modal-asteroid {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .phase-modal-close {
+            background: rgba(84, 230, 255, 0.15);
+            border: 1px solid var(--hud-cyan);
+            color: var(--text);
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+
+        .phase-modal-close:hover {
+            background: rgba(84, 230, 255, 0.25);
+        }
+
+        /* Loading State */
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: var(--hud-cyan);
+            text-align: center;
+            z-index: 1000;
+        }
+
+        #loading::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: -1;
+        }
+
+        #loading > div {
+            position: relative;
+            z-index: 1;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            text-shadow:
+                0 0 20px rgba(84, 230, 255, 0.8),
+                0 0 40px rgba(84, 230, 255, 0.4),
+                0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #loading > div:last-child {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        /* Stats Display */
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.1);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-value {
+            color: var(--hud-cyan);
+            font-weight: 600;
+            text-shadow: 0 0 8px rgba(84, 230, 255, 0.3);
+        }
+
+        /* Market Prices Display */
+        .market-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 11px;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.08);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .market-row:hover {
+            background: rgba(84, 230, 255, 0.08);
+        }
+
+        .market-row:last-child {
+            border-bottom: none;
+        }
+
+        .market-resource {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .market-icon {
+            font-size: 12px;
+        }
+
+        .market-name {
+            color: var(--text);
+        }
+
+        .market-price {
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        .market-price.up {
+            color: #4ade80;
+        }
+
+        .market-price.down {
+            color: #f87171;
+        }
+
+        .market-price.stable {
+            color: var(--hud-cyan);
+        }
+
+        .market-trend {
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
+        .market-sparkline {
+            width: 40px;
+            height: 16px;
+            margin-left: 8px;
+        }
+
+        /* Market Detail Modal */
+        .market-detail-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5500;
+        }
+
+        .market-detail-overlay:not(.visible) {
+            display: none;
+        }
+
+        .market-detail-content {
+            background: var(--card-bg);
+            border: 1px solid rgba(84, 230, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px 30px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .market-detail-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .market-detail-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            color: var(--hud-cyan);
+        }
+
+        .market-detail-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .market-chart {
+            height: 120px;
+            background: rgba(10, 18, 28, 0.6);
+            border-radius: 4px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .market-chart-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .market-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .market-stat {
+            text-align: center;
+        }
+
+        .market-stat-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .market-stat-value {
+            font-size: 14px;
+            color: var(--hud-cyan);
+            font-weight: 600;
+        }
+
+        /* Flight Log Display */
+        .flight-log-entry {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(84, 230, 255, 0.08);
+            font-size: 11px;
+        }
+
+        .flight-log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .flight-log-asteroid {
+            color: var(--hud-cyan);
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .flight-log-details {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+        }
+
+        .flight-log-profit {
+            color: #4ade80;
+            font-weight: 600;
+        }
+
+        .flight-log-profit.loss {
+            color: #f87171;
+        }
+
+        /* Custom Scrollbars */
+        #left-panel::-webkit-scrollbar,
+        #right-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #left-panel::-webkit-scrollbar-track,
+        #right-panel::-webkit-scrollbar-track {
+            background: rgba(10, 18, 28, 0.4);
+            border-radius: 4px;
+        }
+
+        #left-panel::-webkit-scrollbar-thumb,
+        #right-panel::-webkit-scrollbar-thumb {
+            background: rgba(84, 230, 255, 0.3);
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+
+        #left-panel::-webkit-scrollbar-thumb:hover,
+        #right-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(84, 230, 255, 0.5);
+            box-shadow: 0 0 8px rgba(84, 230, 255, 0.4);
+        }
+
+        /* Links */
+        a {
+            color: var(--hud-cyan);
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        a:hover {
+            text-shadow: 0 0 12px rgba(84, 230, 255, 0.7);
+        }
+
+        /* Emphasis elements */
+        strong {
+            color: var(--hud-cyan);
+            font-weight: 700;
+        }
+
+        /* Scanline effect (subtle) */
+        #left-panel::after,
+        #right-panel::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0.03) 0px,
+                rgba(255, 255, 255, 0.01) 1px,
+                transparent 2px
+            );
+            mix-blend-mode: overlay;
+            opacity: 0.15;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 3D Canvas -->
+        <canvas id="canvas"></canvas>
+
+        <!-- Loading Screen -->
+        <div id="loading" class="loading-overlay">
+            <div class="loading-content-box">
+                <div class="loading-title">ASTEROID MINER</div>
+                <div class="loading-level" id="loading-level">Level 1/5: <a href="https://en.wikipedia.org/wiki/Apollo_asteroid" target="_blank" style="color: var(--hud-cyan);">Apollo</a> and <a href="https://en.wikipedia.org/wiki/Amor_asteroid" target="_blank" style="color: var(--hud-cyan);">Amor</a></div>
+                <div class="loading-description" id="loading-description">
+                    Still using chemical propellant and launching from the gravity well? With a <a href="https://en.wikipedia.org/wiki/Specific_impulse" target="_blank" style="color: #0ff;">Specific Impulse</a> of around 400s, transit time will mean near-Earth asteroids are your best targets, and you will rely on contractors to supply your vehicle, crew, and tooling.
+                </div>
+                <div class="loading-progress">
+                    <div class="loading-progress-bar" id="loading-progress-bar"></div>
+                </div>
+                <div class="loading-status" id="loading-status">Initializing...</div>
+                <button id="launch-btn" class="btn" style="display: none; margin-top: 20px; padding: 12px 32px; font-size: 1.1em;">Ready to Launch</button>
+            </div>
+        </div>
+
+        <script>
+            // Set loading screen background
+            (function() {
+                const loadingDiv = document.getElementById('loading');
+                if (loadingDiv) {
+                    loadingDiv.style.backgroundImage = `url('/images/mining_red_asteroid.png')`;
+                    loadingDiv.style.backgroundSize = 'cover';
+                    loadingDiv.style.backgroundPosition = 'center';
+                }
+            })();
+        </script>
+
+        <!-- HUD Overlay -->
+        <div class="hud" id="top-bar">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div id="game-title">ASTEROID MINER</div>
+                <div id="breadcrumb" style="display: none;">
+                    <span style="color: #888;"> / </span>
+                    <a href="#" id="breadcrumb-link" style="color: #0ff; text-decoration: none;">← System View</a>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <div id="time-control" style="display: flex; align-items: center; gap: 10px;">
+                    <span id="game-date" style="color: #0ff; font-size: 11px; font-weight: 600; min-width: 70px;">Jan 2032</span>
+                    <label style="color: #888; font-size: 11px;">Time:</label>
+                    <input type="range" id="time-slider" min="0" max="5" value="3" step="1" style="width: 150px;">
+                    <span id="time-display" style="color: #0ff; font-size: 11px; min-width: 100px;">Real-Time</span>
+                </div>
+                <button id="save-url-btn" class="btn" style="padding: 4px 12px; font-size: 11px;">Copy Save URL</button>
+            </div>
+        </div>
+
+        <div class="hud" id="left-panel">
+            <div class="panel-section">
+                <h3>COMPANY STATUS</h3>
+                <div class="stat-row">
+                    <span class="label">Level:</span>
+                    <span class="stat-value" id="current-level">1/5: <a href="https://en.wikipedia.org/wiki/Apollo_asteroid" target="_blank" style="color: var(--hud-cyan);">Apollo</a> and <a href="https://en.wikipedia.org/wiki/Amor_asteroid" target="_blank" style="color: var(--hud-cyan);">Amor</a></span>
+                </div>
+                <div class="stat-row">
+                    <span class="label">Balance:</span>
+                    <span class="stat-value" id="balance">$50,000,000</span>
+                </div>
+                <div class="stat-row">
+                    <span class="label">Reputation:</span>
+                    <span class="stat-value" id="reputation">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="label">Missions:</span>
+                    <span class="stat-value" id="missions-completed">0</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>ACTIVE MISSIONS</h3>
+                <p id="active-missions-list" style="color: #888;">No active missions</p>
+                <button id="plan-mission-btn" class="btn">Plan Mission</button>
+            </div>
+
+            <div class="panel-section" id="tech-tree-section">
+                <h3>TECH TREE <span id="tech-tree-status" style="font-size: 0.8em; color: #666;">(Level 2+)</span></h3>
+                <div id="tech-tree-container">
+                    <div id="tech-tree-locked" style="color: #666; font-style: italic;">
+                        Complete 10 contracts to unlock the tech tree.
+                    </div>
+                    <div id="tech-tree-content" style="display: none;">
+                        <div class="tech-effects-summary" id="tech-effects-summary"></div>
+                        <button id="open-tech-tree-btn" class="btn" style="margin-top: 8px;">View Tech Tree</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section" id="assets-section">
+                <h3>OWNED ASSETS <span id="assets-status" style="font-size: 0.8em; color: #666;">(Level 2+)</span></h3>
+                <div id="assets-container">
+                    <div id="assets-locked" style="color: #666; font-style: italic;">
+                        Complete 10 contracts to unlock asset purchases.
+                    </div>
+                    <div id="assets-content" style="display: none;">
+                        <div id="owned-assets-summary"></div>
+                        <button id="open-assets-btn" class="btn" style="margin-top: 8px;">View Assets</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section" id="storage-section">
+                <h3>STORAGE DEPOTS <span id="storage-status" style="font-size: 0.8em; color: #666;">(Level 3+)</span></h3>
+                <div id="storage-container">
+                    <div id="storage-locked" style="color: #666; font-style: italic;">
+                        Complete 50 contracts to unlock storage depots.
+                    </div>
+                    <div id="storage-content" style="display: none;">
+                        <div id="storage-summary"></div>
+                        <button id="open-storage-btn" class="btn" style="margin-top: 8px;">View Storage</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>HELP</h3>
+                <div class="help-tip-container">
+                    <div class="help-tip-text" id="help-tip-text">Loading tip...</div>
+                    <span class="help-more-link" id="help-more-link">more...</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>CONTROLS</h3>
+                <p><span class="label">Left Click + Drag:</span> Rotate</p>
+                <p><span class="label">Right Click + Drag:</span> Pan</p>
+                <p><span class="label">Scroll:</span> Zoom</p>
+                <p><span class="label">Click Object:</span> Select</p>
+            </div>
+
+            <div class="panel-section">
+                <h3>SEARCH</h3>
+                <div class="search-container">
+                    <input type="text" id="body-search" placeholder="Search bodies..." autocomplete="off">
+                    <div id="search-suggestions"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="hud" id="right-panel">
+            <div class="panel-section">
+                <h3>TARGET INFORMATION</h3>
+                <div id="target-info">
+                    <p style="color: #888;">Select an asteroid to view details</p>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>QUICK STATS</h3>
+                <p id="asteroid-count">Loading asteroids...</p>
+            </div>
+
+            <div class="panel-section">
+                <h3>HOVER INFO</h3>
+                <div id="hover-info">
+                    <p style="color: #888;">Hover over objects to see details</p>
+                </div>
+            </div>
+
+            <div class="panel-section" id="market-section">
+                <h3>MARKET PRICES <span style="font-size: 10px; color: #888; font-weight: normal;">($/ton)</span></h3>
+                <div id="market-prices">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
+            <div class="panel-section" id="flight-log-section">
+                <h3>FLIGHT LOG</h3>
+                <div id="flight-log">
+                    <p style="color: #888; font-size: 11px;">No completed missions yet</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="hud" id="news-ticker">
+            <div id="ticker-content">
+                <span class="ticker-item ticker-important">Welcome to ASTEROID MINER!</span>
+                <span class="ticker-item ticker-flavor">Mars colonists vote pineapple officially banned from space pizza</span>
+                <span class="ticker-item ticker-market">Lithium prices stable at $45,000/ton</span>
+                <span class="ticker-item ticker-flavor">Belt miner sets record for longest poker game - 14 months in transit</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mission Planning Modal -->
+    <div id="mission-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Plan Mission</h2>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+
+            <!-- Step 1: Contract Selection -->
+            <div class="modal-step active" id="step-contract">
+                <h3>Step 1: Select Contract</h3>
+                <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 16px;">
+                    Choose a contract from available vendors, or skip to select your own target.
+                </p>
+                <div id="contract-options">
+                    <!-- Filled dynamically -->
+                </div>
+                <div class="modal-nav">
+                    <button class="btn btn-secondary" id="btn-cancel">Cancel</button>
+                    <button class="btn btn-primary" id="btn-skip-contract">Skip: Choose Own Target</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Target Selection -->
+            <div class="modal-step" id="step-target-select">
+                <h3>Step 2: Select Target</h3>
+                <p id="target-select-hint" style="color: var(--text-muted); font-size: 12px; margin-bottom: 16px;">
+                    <!-- Filled dynamically based on contract -->
+                </p>
+                <div id="target-options" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Filled dynamically -->
+                </div>
+                <div class="modal-nav">
+                    <button class="btn btn-secondary" id="btn-back-contract">Back</button>
+                    <button class="btn btn-secondary" id="btn-manual-select">Select from Map</button>
+                    <button class="btn btn-primary" id="btn-to-provider-from-target" disabled>Next: Choose Provider</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Target Confirmation (when coming from pre-selected target) -->
+            <div class="modal-step" id="step-target">
+                <h3>Step 2: Confirm Target</h3>
+                <div id="target-summary" class="summary-section">
+                    <!-- Filled dynamically -->
+                </div>
+                <p style="color: var(--text-muted); font-size: 12px;">
+                    This asteroid will be the target of your mining mission.
+                </p>
+                <div class="modal-nav">
+                    <button class="btn btn-secondary" id="btn-back-to-contract">Back</button>
+                    <button class="btn btn-primary" id="btn-to-provider">Next: Choose Provider</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Launch Provider -->
+            <div class="modal-step" id="step-provider">
+                <h3>Step 3: Launch Provider</h3>
+                <div id="provider-options">
+                    <!-- Filled dynamically -->
+                </div>
+                <div class="modal-nav">
+                    <button class="btn btn-secondary" id="btn-back-target">Back</button>
+                    <button class="btn btn-primary" id="btn-to-crew" disabled>Next: Choose Crew</button>
+                </div>
+            </div>
+
+            <!-- Step 5: Crew Selection -->
+            <div class="modal-step" id="step-crew">
+                <h3>Step 4: Crew Type</h3>
+                <div id="crew-options">
+                    <!-- Filled dynamically -->
+                </div>
+                <div class="modal-nav">
+                    <button class="btn btn-secondary" id="btn-back-provider">Back</button>
+                    <button class="btn btn-primary" id="btn-to-summary" disabled>Next: Review</button>
+                </div>
+            </div>
+
+            <!-- Step 6: Summary & Launch -->
+            <div class="modal-step" id="step-summary">
+                <h3>Mission Summary</h3>
+                <div id="mission-summary">
+                    <!-- Filled dynamically -->
+                </div>
+                <div class="modal-nav">
+                    <button class="btn btn-secondary" id="btn-back-crew">Back</button>
+                    <button class="btn btn-primary" id="btn-launch">Launch Mission</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase Status Modal -->
+    <div id="phase-modal" class="phase-modal-overlay">
+        <div class="phase-modal-content" id="phase-modal-content">
+            <img id="phase-modal-image" class="phase-modal-image" src="" alt="Mission Phase">
+            <div id="phase-modal-title" class="phase-modal-title"></div>
+            <div id="phase-modal-asteroid" class="phase-modal-asteroid"></div>
+            <div id="phase-modal-description" class="phase-modal-description"></div>
+            <button class="phase-modal-close" id="phase-modal-close">Dismiss</button>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="help-modal-overlay">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <span class="help-modal-title">Help & Reference</span>
+                <button class="help-modal-close" id="help-modal-close">&times;</button>
+            </div>
+            
+            <div class="help-section">
+                <div class="help-section-title">How to Play</div>
+                <div class="help-walkthrough" id="help-walkthrough">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
+            <div class="help-section">
+                <div class="help-section-title">Progression Levels</div>
+                <div class="help-progression-list" id="help-progression-list">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
+            <div class="help-section">
+                <div class="help-section-title">Tips</div>
+                <ul class="help-tips-list" id="help-tips-list">
+                    <!-- Filled dynamically -->
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <div class="help-section-title">References</div>
+                <ul class="help-references-list" id="help-references-list">
+                    <!-- Filled dynamically -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tech Tree Modal -->
+    <div id="tech-tree-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Tech Tree</h2>
+                <button class="modal-close" id="tech-modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="tech-balance-info" style="text-align: right; margin-bottom: 15px;">
+                    Balance: <span id="tech-modal-balance" style="color: var(--hud-cyan);">$0</span>
+                </div>
+                
+                <div class="tech-categories" id="tech-categories">
+                    <!-- Filled dynamically with tech tree content -->
+                </div>
+                
+                <div class="tech-current-effects" style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                    <h4 style="color: var(--hud-cyan); margin: 0 0 10px 0;">Current Tech Bonuses</h4>
+                    <div id="tech-modal-effects">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assets Modal -->
+    <div id="assets-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Company Assets</h2>
+                <button class="modal-close" id="assets-modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="assets-balance-info" style="text-align: right; margin-bottom: 15px;">
+                    Balance: <span id="assets-modal-balance" style="color: var(--hud-cyan);">$0</span>
+                </div>
+                
+                <div class="assets-categories" id="assets-categories">
+                    <!-- Filled dynamically with asset content -->
+                </div>
+                
+                <div class="assets-tip" style="margin-top: 20px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; font-size: 12px; color: #888;">
+                    💡 Owned assets eliminate rental costs on missions. Break-even after the listed number of missions.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Modal -->
+    <div id="storage-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Storage Depots</h2>
+                <button class="modal-close" id="storage-modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="storage-balance-info" style="text-align: right; margin-bottom: 15px;">
+                    Balance: <span id="storage-modal-balance" style="color: var(--hud-cyan);">$0</span>
+                </div>
+                
+                <div class="storage-depots-list" id="storage-depots-list">
+                    <!-- Filled dynamically with depot cards -->
+                </div>
+                
+                <div class="storage-tip" style="margin-top: 20px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; font-size: 12px; color: #888;">
+                    💡 Storage depots let you stockpile resources from spec-free mining. Sell when prices are high!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Up Ceremony Modal -->
+    <div id="level-up-modal" class="modal-overlay level-up-overlay">
+        <div class="level-up-content">
+            <div class="level-up-badge" id="level-up-badge">LEVEL 2</div>
+            <h1 class="level-up-title" id="level-up-title">The Inner Belt</h1>
+            <p class="level-up-description" id="level-up-description">
+                Ion propulsion has dramatically changed the asteroid mining economy!
+            </p>
+            <div class="level-up-unlocks" id="level-up-unlocks">
+                <h3>New Features Unlocked:</h3>
+                <ul>
+                    <li>Tech Tree - Purchase upgrades to improve your operations</li>
+                    <li>Asset Ownership - Buy vehicles and equipment instead of renting</li>
+                </ul>
+            </div>
+            <button id="level-up-continue" class="btn level-up-btn">Continue</button>
+        </div>
+    </div>
+
+    <!-- Market Detail Modal -->
+    <div id="market-detail-modal" class="market-detail-overlay">
+        <div class="market-detail-content">
+            <div class="market-detail-header">
+                <div class="market-detail-title">
+                    <span id="market-detail-icon">💧</span>
+                    <span id="market-detail-name">Water Ice</span>
+                </div>
+                <button class="market-detail-close" id="market-detail-close">&times;</button>
+            </div>
+            <div class="market-chart" id="market-chart">
+                <canvas id="market-chart-canvas"></canvas>
+            </div>
+            <div class="market-stats-grid">
+                <div class="market-stat">
+                    <div class="market-stat-label">Current Price</div>
+                    <div class="market-stat-value" id="market-current-price">$5,000</div>
+                </div>
+                <div class="market-stat">
+                    <div class="market-stat-label">Base Price</div>
+                    <div class="market-stat-value" id="market-base-price">$5,000</div>
+                </div>
+                <div class="market-stat">
+                    <div class="market-stat-label">52-Week High</div>
+                    <div class="market-stat-value" id="market-high">$7,500</div>
+                </div>
+                <div class="market-stat">
+                    <div class="market-stat-label">52-Week Low</div>
+                    <div class="market-stat-value" id="market-low">$2,500</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

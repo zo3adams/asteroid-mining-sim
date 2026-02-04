@@ -1,0 +1,7 @@
+# This folder stores game textures
+
+Textures are not included in the repository due to file size.
+
+See: ../../TEXTURE-DOWNLOAD-CHECKLIST.md for instructions.
+
+The game will work without textures (using colored spheres as fallback).
