@@ -394,7 +394,7 @@ Players can buy instead of rent:
 
 ---
 
-## Pirate System (Level 3+) (PLANNED)
+## Pirate System (Level 3+) ✅ IMPLEMENTED
 
 ### Pirate Attack Mechanics
 

@@ -449,12 +449,20 @@ export interface Mission {
   crewId: string;
   crewName: string;
   
+  // Crew metadata (generated at mission creation)
+  captainName: string;
+  
   // Contract info (if any)
   contractId?: string;
+  contractVendorName?: string; // Vendor who issued the contract
   contractValue?: number; // Base payout from contract
+  contractDeadline?: number; // Contract deadline in days from mission start
   resourceType?: string; // Primary resource being mined
   isSpecFreeMining?: boolean; // True if mining without a contract (store to depot)
   targetDepotId?: string; // Depot to store resources (for spec-free mining)
+  
+  // Mission distance (for speed calculations)
+  distanceAU: number; // Distance to asteroid in AU
   
   // Timing
   launchTime: number; // game time (days since start)
@@ -490,11 +498,60 @@ export interface Mission {
   resourcesGained?: number; // tons
   revenue?: number;
   
+  // Expected payload (calculated at mission start)
+  expectedPayload?: number; // tons
+  
+  // Delivery destination (randomly chosen at mission start)
+  deliveryDestination: 'LEO' | 'GEO' | 'Lunar';
+  
   // Combat results (if pirate encounter)
   combatResult?: {
     outcome: string;
     narrative: string;
   };
+}
+
+// Captain names for mission crews
+const CAPTAIN_FIRST_NAMES = [
+  'James', 'Sarah', 'Marcus', 'Elena', 'Chen', 'Yuki', 'Dmitri', 'Amara',
+  'Raj', 'Astrid', 'Miguel', 'Fatima', 'Oleg', 'Priya', 'Hassan', 'Ingrid',
+  'Kwame', 'Lena', 'Viktor', 'Zara', 'Anders', 'Kenji', 'Nadia', 'Pavel'
+];
+
+const CAPTAIN_LAST_NAMES = [
+  'Chen', 'Rodriguez', 'Nakamura', 'Okonkwo', 'Petrov', 'Singh', 'Mueller',
+  'Okafor', 'Kim', 'Santos', 'Volkov', 'Johansson', 'Tanaka', 'Patel',
+  'Andersen', 'Kowalski', 'Yamamoto', 'Jensen', 'Ivanov', 'Reyes', 'Larsson'
+];
+
+/**
+ * Generate a random captain name
+ */
+export function generateCaptainName(): string {
+  const firstName = CAPTAIN_FIRST_NAMES[Math.floor(Math.random() * CAPTAIN_FIRST_NAMES.length)];
+  const lastName = CAPTAIN_LAST_NAMES[Math.floor(Math.random() * CAPTAIN_LAST_NAMES.length)];
+  return `${firstName} ${lastName}`;
+}
+
+/**
+ * Calculate vehicle speed from distance and duration
+ * Returns speed in km/s and as percentage of light speed
+ */
+export function calculateVehicleSpeed(
+  distanceAU: number,
+  durationDays: number
+): { kmPerSecond: number; percentLightSpeed: number } {
+  const AU_IN_KM = 149597870.7; // 1 AU in kilometers
+  const LIGHT_SPEED_KM_S = 299792.458; // Speed of light in km/s
+  const SECONDS_PER_DAY = 86400;
+  
+  const distanceKm = distanceAU * AU_IN_KM;
+  const durationSeconds = durationDays * SECONDS_PER_DAY;
+  
+  const kmPerSecond = distanceKm / durationSeconds;
+  const percentLightSpeed = (kmPerSecond / LIGHT_SPEED_KM_S) * 100;
+  
+  return { kmPerSecond, percentLightSpeed };
 }
 
 // Mission calculation helpers
