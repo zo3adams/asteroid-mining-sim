@@ -339,23 +339,14 @@
             align-items: center;
             height: 100%;
             white-space: nowrap;
-            animation: scroll-left 60s linear infinite;
             padding: 0 24px;
             font-size: 13px;
             font-weight: 500;
-        }
-
-        @keyframes scroll-left {
-            0% {
-                transform: translateX(100%);
-            }
-            100% {
-                transform: translateX(-100%);
-            }
+            /* Animation controlled by JavaScript for true infinite scroll */
         }
 
         #ticker-content:hover {
-            animation-play-state: paused;
+            /* Pause handled by JavaScript */
         }
 
         .ticker-item {
@@ -526,6 +517,31 @@
         }
 
         /* Help Section */
+        .help-header-link {
+            cursor: pointer;
+            transition: color 0.2s, text-shadow 0.2s;
+        }
+
+        .help-header-link:hover {
+            color: var(--hud-cyan);
+            text-shadow: 0 0 8px rgba(84, 230, 255, 0.5);
+        }
+
+        .help-header-link.new-player-glow {
+            animation: helpPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes helpPulse {
+            0%, 100% {
+                color: var(--text-primary);
+                text-shadow: 0 0 5px rgba(84, 230, 255, 0.3);
+            }
+            50% {
+                color: var(--hud-cyan);
+                text-shadow: 0 0 20px rgba(84, 230, 255, 0.8), 0 0 40px rgba(84, 230, 255, 0.4);
+            }
+        }
+
         .help-tip-container {
             background: rgba(10, 18, 28, 0.4);
             border: 1px solid rgba(84, 230, 255, 0.2);
@@ -1625,6 +1641,18 @@
             margin-bottom: 16px;
         }
 
+        .type-link {
+            color: var(--hud-cyan);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--hud-cyan);
+            transition: all 0.15s ease;
+        }
+
+        .type-link:hover {
+            color: #fff;
+            border-bottom-color: #fff;
+        }
+
         .option-card {
             background: rgba(10, 18, 28, 0.5);
             border: 1px solid rgba(84, 230, 255, 0.2);
@@ -1987,8 +2015,10 @@
             border: 1px solid var(--stroke);
             border-radius: 12px;
             padding: 24px;
-            max-width: 500px;
+            max-width: 600px;
             width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
             text-align: center;
             box-shadow:
                 0 24px 64px rgba(0, 0, 0, 0.6),
@@ -2011,7 +2041,7 @@
 
         .phase-modal-image {
             width: 100%;
-            max-height: 250px;
+            max-height: 200px;
             object-fit: contain;
             border-radius: 8px;
             margin-bottom: 16px;
@@ -2037,14 +2067,77 @@
         .phase-modal-description {
             font-size: 14px;
             color: var(--text);
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             line-height: 1.5;
         }
 
-        .phase-modal-asteroid {
+        .phase-modal-asteroid-info {
             font-size: 12px;
             color: var(--text-muted);
             margin-bottom: 16px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            text-align: left;
+        }
+
+        .phase-modal-asteroid-info a {
+            color: var(--hud-cyan);
+            text-decoration: none;
+        }
+
+        .phase-modal-asteroid-info a:hover {
+            text-decoration: underline;
+        }
+
+        .phase-modal-details {
+            font-size: 13px;
+            color: var(--text);
+            margin-bottom: 20px;
+            text-align: left;
+            line-height: 1.6;
+        }
+
+        .phase-modal-details .detail-section {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: rgba(84, 230, 255, 0.05);
+            border-radius: 6px;
+            border-left: 3px solid var(--hud-cyan);
+        }
+
+        .phase-modal-details .detail-section.success-section {
+            border-left-color: #44ff66;
+            background: rgba(68, 255, 102, 0.05);
+        }
+
+        .phase-modal-details .detail-section.failure-section {
+            border-left-color: #ff4466;
+            background: rgba(255, 68, 102, 0.05);
+        }
+
+        .phase-modal-details .detail-label {
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .phase-modal-details .detail-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .phase-modal-details .detail-value.highlight {
+            color: var(--hud-cyan);
+        }
+
+        .phase-modal-details .detail-value.profit {
+            color: #44ff66;
+        }
+
+        .phase-modal-details .detail-value.loss {
+            color: #ff4466;
         }
 
         .phase-modal-close {
@@ -2501,8 +2594,8 @@
                 </div>
             </div>
 
-            <div class="panel-section">
-                <h3>HELP</h3>
+            <div class="panel-section" id="help-section">
+                <h3 class="help-header-link" id="help-header">HELP</h3>
                 <div class="help-tip-container">
                     <div class="help-tip-text" id="help-tip-text">Loading tip...</div>
                     <span class="help-more-link" id="help-more-link">more...</span>
@@ -2564,9 +2657,6 @@
         <div class="hud" id="news-ticker">
             <div id="ticker-content">
                 <span class="ticker-item ticker-important">Welcome to ASTEROID MINER!</span>
-                <span class="ticker-item ticker-flavor">Mars colonists vote pineapple officially banned from space pizza</span>
-                <span class="ticker-item ticker-market">Lithium prices stable at $45,000/ton</span>
-                <span class="ticker-item ticker-flavor">Belt miner sets record for longest poker game - 14 months in transit</span>
             </div>
         </div>
     </div>
@@ -2668,8 +2758,9 @@
         <div class="phase-modal-content" id="phase-modal-content">
             <img id="phase-modal-image" class="phase-modal-image" src="" alt="Mission Phase">
             <div id="phase-modal-title" class="phase-modal-title"></div>
-            <div id="phase-modal-asteroid" class="phase-modal-asteroid"></div>
+            <div id="phase-modal-asteroid-info" class="phase-modal-asteroid-info"></div>
             <div id="phase-modal-description" class="phase-modal-description"></div>
+            <div id="phase-modal-details" class="phase-modal-details"></div>
             <button class="phase-modal-close" id="phase-modal-close">Dismiss</button>
         </div>
     </div>

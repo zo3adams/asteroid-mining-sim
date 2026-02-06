@@ -44,6 +44,15 @@
   - Example: Asteroid 433953 → `(433953)_1997_XR2` article
   - All planets and the Sun have Wikipedia links
 
+#### Asteroid type links
+ - S https://en.wikipedia.org/wiki/S-type_asteroid
+ - M https://en.wikipedia.org/wiki/M-type_asteroid
+ - Q https://en.wikipedia.org/wiki/Q-type_asteroid
+ - V https://en.wikipedia.org/wiki/V-type_asteroid
+ - E https://en.wikipedia.org/wiki/E-type_asteroid
+ - C https://en.wikipedia.org/wiki/C-type_asteroid
+ - D https://en.wikipedia.org/wiki/D-type_asteroid
+
 ### Minor Planet Center
 - **URL**: https://minorplanetcenter.net/
 - **License**: Free for non-commercial use

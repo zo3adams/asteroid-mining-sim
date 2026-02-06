@@ -499,3 +499,155 @@ export class AsteroidDataFetcher {
     };
   }
 }
+
+/**
+ * Calculate the current distance from Earth to an asteroid based on orbital positions.
+ * Uses the rendered positions (angles) to determine if asteroid is near or far.
+ * 
+ * @param asteroid - The asteroid info with orbital elements
+ * @param gameTimeDays - Game time in days since start (Jan 1, 2032)
+ * @param asteroidAngle - Current orbital angle of asteroid in radians (from renderer)
+ * @param earthAngle - Current orbital angle of Earth in radians (from renderer)
+ * @returns Object with current distance, min possible, and max possible distances in AU
+ */
+export function calculateDistanceFromEarth(
+  asteroid: AsteroidInfo,
+  gameTimeDays: number,
+  asteroidAngle?: number | null,
+  earthAngle?: number
+): { current: number; min: number; max: number; isNear: boolean } {
+  const a = asteroid.semiMajorAxis;
+  const e = asteroid.eccentricity;
+  
+  // Calculate perihelion and aphelion
+  const perihelion = a * (1 - e);
+  const aphelion = a * (1 + e);
+  
+  // Calculate min distance from Earth (simplified)
+  let minDistance: number;
+  if (perihelion < 1 && aphelion > 1) {
+    // Earth-crossing asteroid - can get very close
+    // Min is roughly how close the orbits get
+    minDistance = Math.min(Math.abs(perihelion - 1), Math.abs(aphelion - 1)) * 0.2;
+    minDistance = Math.max(minDistance, 0.01); // At least 0.01 AU
+  } else if (perihelion >= 1) {
+    // Entirely outside Earth's orbit
+    minDistance = perihelion - 1;
+  } else {
+    // Entirely inside Earth's orbit
+    minDistance = 1 - aphelion;
+  }
+  
+  // Max distance from Earth (asteroid at aphelion, Earth on opposite side of Sun)
+  const maxDistance = aphelion + 1;
+  
+  let isNear: boolean;
+  
+  // If we have actual rendered positions, use the angle difference
+  if (asteroidAngle !== undefined && asteroidAngle !== null && earthAngle !== undefined) {
+    // Calculate angular separation (0 to π)
+    let angleDiff = Math.abs(asteroidAngle - earthAngle);
+    if (angleDiff > Math.PI) {
+      angleDiff = 2 * Math.PI - angleDiff;
+    }
+    
+    // If angular separation < 90° (π/2), they're on same side = near
+    // If angular separation > 90°, they're on opposite sides = far
+    isNear = angleDiff < Math.PI / 2;
+  } else {
+    // Fallback to synodic period calculation
+    const asteroidPeriodDays = Math.pow(a, 1.5) * 365.25;
+    const earthPeriodDays = 365.25;
+    const synodicPeriod = 1 / Math.abs(1/earthPeriodDays - 1/asteroidPeriodDays);
+    const phase = (gameTimeDays % synodicPeriod) / synodicPeriod;
+    isNear = phase < 0.25 || phase > 0.75;
+  }
+  
+  const current = isNear ? minDistance : maxDistance;
+  
+  return { current, min: minDistance, max: maxDistance, isNear };
+}
+
+/**
+ * Result of asteroid match scoring for mission planning
+ */
+export interface AsteroidMatchResult {
+  asteroid: AsteroidInfo;
+  matchPercent: number;
+  hasResource: boolean;
+  rawScore: number;
+}
+
+/**
+ * Calculate match percentages for asteroids against a contract's resource type.
+ * 
+ * Logic:
+ * 1. Filter asteroids by whether their type contains the resource
+ * 2. Score matching asteroids: rawScore = typeScore × sizeScore
+ * 3. Normalize scores to 20-90% range
+ * 4. Non-matching asteroids get 1% and only shown if < 5 matches
+ * 
+ * @param asteroids - List of available asteroids
+ * @param resourceType - The resource type from the contract
+ * @returns Scored and sorted asteroid list
+ */
+export function calculateAsteroidMatches(
+  asteroids: AsteroidInfo[],
+  resourceType: ResourceType
+): AsteroidMatchResult[] {
+  const goodTypes = getTypesForResource(resourceType);
+  
+  // Separate matching vs non-matching asteroids
+  const matching: { asteroid: AsteroidInfo; rawScore: number }[] = [];
+  const nonMatching: AsteroidInfo[] = [];
+  
+  for (const asteroid of asteroids) {
+    const typeIndex = goodTypes.indexOf(asteroid.taxonomicClass);
+    const hasResource = typeIndex >= 0;
+    
+    if (hasResource) {
+      // Type score: higher rank = higher score (best = 1.0)
+      const typeScore = (goodTypes.length - typeIndex) / goodTypes.length;
+      // Size score: larger asteroids score higher, capped at 1.0
+      const sizeScore = asteroid.diameter ? Math.min(asteroid.diameter / 50, 1) : 0.3;
+      // Raw score = multiplicative combination
+      const rawScore = 1.0 * typeScore * sizeScore;
+      matching.push({ asteroid, rawScore });
+    } else {
+      nonMatching.push(asteroid);
+    }
+  }
+  
+  const results: AsteroidMatchResult[] = [];
+  
+  // Normalize matching asteroids to 20-90% range
+  if (matching.length > 0) {
+    const scores = matching.map(m => m.rawScore);
+    const minRaw = Math.min(...scores);
+    const maxRaw = Math.max(...scores);
+    const range = maxRaw - minRaw || 1; // Avoid division by zero
+    
+    for (const { asteroid, rawScore } of matching) {
+      const normalized = (rawScore - minRaw) / range;
+      const matchPercent = Math.round(20 + normalized * 70); // 20% to 90%
+      results.push({ asteroid, matchPercent, hasResource: true, rawScore });
+    }
+  }
+  
+  // Sort by matchPercent descending
+  results.sort((a, b) => b.matchPercent - a.matchPercent);
+  
+  // If fewer than 5 matching, add non-matching at 1%
+  if (results.length < 5 && nonMatching.length > 0) {
+    const needed = 5 - results.length;
+    const toAdd = nonMatching.slice(0, needed).map(asteroid => ({
+      asteroid,
+      matchPercent: 1,
+      hasResource: false,
+      rawScore: 0,
+    }));
+    results.push(...toAdd);
+  }
+  
+  return results;
+}

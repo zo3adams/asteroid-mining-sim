@@ -49,8 +49,21 @@ Players learn about:
 - Use real asteroids and comets from NASA databases
 - Link to Wikipedia entries for educational content
 - Real orbital mechanics determine mission timelines
-- Accurate distance and composition data
+- **Dynamic distance calculation** based on orbital position and game time
+- Accurate composition data based on asteroid taxonomic class
 - Live data sources where possible
+
+### Distance Calculation
+Asteroid distance from Earth varies based on orbital mechanics:
+- **Perihelion** = semi-major axis × (1 - eccentricity)
+- **Aphelion** = semi-major axis × (1 + eccentricity)
+- **Min distance from Earth** ≈ |perihelion - 1 AU| for non-crossing orbits
+- **Max distance from Earth** ≈ aphelion + 1 AU (opposite sides of Sun)
+
+The game calculates a **synodic period** (time between closest approaches) and uses game time to determine if the asteroid is currently at "near" or "far" approach. This affects:
+- Travel time (and thus mission duration)
+- Whether contracts can be completed on time
+- Strategic timing of when to accept distant contracts
 
 ## Progression Systems
 - **Business Growth** - Revenue, contracts completed, reputation
@@ -104,6 +117,23 @@ Multi-step modal overlay for planning mining missions:
 - Contracts specify quantity needed, price per ton, and deadline
 - Target suggestions are filtered and ranked by asteroid type suitability for the requested resource
 
+### Asteroid Match Percentage Calculation
+When selecting a target asteroid for a contract, match percentages indicate suitability:
+
+1. **Filtering**: Asteroids are first checked against the contract's resource type using `getTypesForResource()`. Asteroids whose taxonomic class is NOT in the resource's type list are filtered out.
+
+2. **Scoring (for matching asteroids)**:
+   - **Type Score**: Based on rank in the resource's type list (best match = 1.0)
+   - **Size Score**: `min(diameter / 50km, 1.0)` - larger asteroids score higher
+   - **Raw Score**: `1.0 × typeScore × sizeScore` (multiplicative, not additive)
+
+3. **Normalization**: Raw scores are normalized to a 20-90% display range:
+   - Lowest scoring match = 20%
+   - Highest scoring match = 90%
+   - Scores are linearly interpolated between
+
+4. **Fallback**: If fewer than 5 asteroids match the resource type, non-matching asteroids are shown with 1% match, sorted by distance (closest first).
+
 ### Asteroid Resource Mapping
 Resources are determined by asteroid taxonomic type:
 - **C-type**: Water, Volatiles (common)
@@ -120,15 +150,42 @@ Resources are determined by asteroid taxonomic type:
 - Terminal failure states shown in red, terminal success in green
 - Dismissing terminal state modal removes mission from list
 
+### Mission Phase Modal Details
+Each phase modal displays comprehensive mission information:
+
+**Common Info (all phases):**
+- Phase image and title
+- Captain name (generated at mission start, stored with mission)
+- Asteroid: Type, Diameter, Mass, Orbital Distance (each clickable → Wikipedia)
+- Contract: Vendor name, Resource type, Contract value (or "Spec-Free Mining" + resource)
+- Provider: Name, Reliability rating
+- Crew: Type, Reliability rating
+- Current leg distance (outbound distance or return distance)
+- Vehicle speed (calculated from distance/time, shown as km/s and % of light speed)
+
+**Phase-Specific Info:**
+- **Contract Signed**: Days until launch window
+- **Launch**: Launch countdown/date
+- **Outbound**: Expected payload estimate, Distance to target
+- **Drilling**: Expected payload, Extraction progress %, Actual/in-progress payload
+- **Inbound**: Actual payload extracted, Distance home
+- **Delivering Payload**: Payload being delivered
+- **Mission Success**: Final payload, Revenue, Costs, Profit breakdown
+- **Pirate Attack**: Combat odds, Security info (if hired)
+- **Pirates Won/Payload Seized**: Loss summary
+- **Pirates Defeated**: Combat result narrative
+
 ### Mission Phases
 Missions progress through phases with probability-based outcomes:
-1. **Contract Signed** → Waiting for launch readiness (1-6 months based on provider frequency)
-2. **Launch** → 98% success to Outbound, 2% Launch Anomaly (terminal failure)
-3. **Outbound** → 98% success to Drilling, 2% In-Flight Anomaly (terminal failure)
-4. **Drilling** → 98% success to Inbound, 2% Explosion at Drill Site (terminal failure)
-5. **Inbound** → 98% success to Delivering Payload, 2% In-Flight Anomaly (terminal failure)
-6. **Delivering Payload** → 100% success to Mission Success
-7. **Mission Success** → Payout deposited (terminal success)
+1. **Contract Signed** → Waiting for launch readiness (1-8 weeks based on provider frequency), title card shows the payload type and qty, due date as month year (based on deadline days,) agreed price, and current market price.
+2. **Launch** → 98% success to Outbound, 2% Launch Anomaly (terminal failure), title card shows vehicle provider, weight of payload to orbit, launch date and wet dress rehearsal status (always passed.)
+3. **Outbound** → 98% success to Drilling, 2% In-Flight Anomaly (terminal failure), title card shows vehicle speed, distance to travel in au and km, and captain's name
+4. **Drilling** → 98% success to Inbound, 2% Explosion at Drill Site (terminal failure), title card shows crew type, current payload extracted (generated based on duration time drilling passed)
+5. **Inbound** → 98% success to Delivering Payload, 2% In-Flight Anomaly (terminal failure), title card shows vehicle speed, distance to travel in au and km, captain's name, and payload type and weight in kg and as percentage of target payload weight.
+6. **Delivering Payload** → 100% success to Mission Success, title card shows payload type and weight in kg and as percentage of target weight, and whether it's delivering to LEO, GEO, or Lunar storage (randomly choose.)
+7. **Mission Success** → Payout deposited (terminal success), title card shows payload type and weight in kg and as percentage of target weight, contract value, % for payload deviation, % for on time or not, and total pay out, then total mission costs broken down into vehicle rental, crew rental, security rental (in L3 and beyond only) total mission costs and net profit.
+
+All title cards will have data on the target asteroid: min and max distance from Earth in AU, size and diameter, and type, and each of these will be a link to the wikipedia article for that asteroid.
 
 Anomaly probabilities modified by provider and crew reliability (higher reliability = lower anomaly chance).
 
@@ -147,6 +204,34 @@ Combat resolution uses D&D-style attack/defense rolls (see game-mechanics.md).
 - Non-contract missions (Level 3+) pay market spot price for extracted resources
 - Excess resources beyond storage capacity sold at market price
 - Payout deposited to player balance on Mission Success
+
+### Late Delivery Penalty
+Contract missions have a deadline. If the mission completes after the deadline:
+- **Penalty formula:** `penaltyPercent = daysLate / contractDeadline`
+- **Payout modifier:** `lateModifier = 1.0 - penaltyPercent`
+- Penalty is capped at 100% (no negative payouts)
+
+Examples:
+- 1 day late on 100 day deadline → 1% penalty → 99% payout
+- 50 days late on 100 day deadline → 50% penalty → 50% payout
+- 100+ days late on 100 day deadline → 100% penalty → 0% payout
+
+The Contract Signed modal shows estimated mission time vs deadline so players can assess feasibility before committing.
+
+### Financial Consistency Requirements
+The following values MUST be consistent across all displays:
+1. **Mission Success Modal** - Shows NET PROFIT = Final Payout - Total Costs
+2. **Flight Log Entry** - Shows PROFIT (same calculation as modal)
+3. **Balance Adjustment** - Costs deducted at contract signing; Revenue (payout) added at completion
+
+Calculation flow:
+- At contract signing: `balance -= totalCost` (vehicle + crew rental)
+- At mission success: `balance += revenue` (contract value × efficiency modifier × late modifier)
+- Displayed profit: `profit = revenue - totalCost`
+
+For contract missions, revenue = `contractValue × efficiencyModifier × lateModifier` where:
+- `efficiencyModifier = 0.8 + (crewMiningEfficiency × 0.4)` → Range: 88% to 128%
+- `lateModifier = 1.0 - (daysLate / contractDeadline)` → Range: 0% to 100%
 
 ---
 

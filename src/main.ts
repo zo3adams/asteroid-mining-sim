@@ -4,7 +4,7 @@
 
 import { SolarSystem } from './rendering/SolarSystem';
 import { GameState, FlightLogEntry } from './core/GameState';
-import { AsteroidDataFetcher, AsteroidInfo, getTypesForResource, estimateAsteroidResources, getPrimaryResourcesForType } from './data/AsteroidData';
+import { AsteroidDataFetcher, AsteroidInfo, getTypesForResource, estimateAsteroidResources, getPrimaryResourcesForType, calculateDistanceFromEarth, calculateAsteroidMatches } from './data/AsteroidData';
 import { formatCurrency, formatDistance, formatMass, formatDiameter } from './utils/Formatters';
 import { getAsteroidWikipediaUrl, getPlanetWikipediaUrl, getSunWikipediaUrl } from './data/WikipediaLinks';
 import { TIME_SCALE_NAMES, PLANET_DIAMETERS, MOON_DIAMETERS } from './utils/Constants';
@@ -25,6 +25,7 @@ import {
   estimateResourceYield,
   generateMissionId,
   generateContracts,
+  generateCaptainName,
 } from './core/MissionTypes';
 import { GAMEPLAY_TIPS, REFERENCES, GAMEPLAY_WALKTHROUGH, PROGRESSION_LEVELS, getRandomTip, getCurrentLevel } from './data/HelpContent';
 import { 
@@ -74,6 +75,11 @@ import {
   formatCombatNews,
   CombatResult,
 } from './data/PirateSystem';
+import {
+  NewsSystem,
+  getNewsSystem,
+  EasterEggState,
+} from './data/NewsSystem';
 
 // Alias for RESOURCE_INFO from MarketSystem
 const MARKET_RESOURCE_INFO = RESOURCE_INFO;
@@ -94,6 +100,17 @@ class Game {
   private debugMode = false;
   private lastKnownLevel = 1; // Track level for transition detection
   
+  // News system
+  private newsSystem: NewsSystem;
+  private lastNewsCheck = 0; // Game time of last news check
+  private lastEasterEggState: { month: number; day: number; missions: number; balanceTier: string } | null = null;
+  
+  // News ticker state
+  private tickerPosition = 0;
+  private tickerPaused = false;
+  private lastTickerUpdate = 0;
+  private readonly TICKER_SPEED = 80; // pixels per second
+  
   // Search functionality
   private searchableBodies: SearchableBody[] = [];
   private searchSelectedIndex = -1;
@@ -110,6 +127,7 @@ class Game {
   constructor() {
     this.gameState = GameState.getInstance();
     this.lastKnownLevel = getCurrentLevel(this.gameState.data.missionsCompleted).id;
+    this.newsSystem = getNewsSystem();
     this.init();
   }
 
@@ -180,6 +198,9 @@ class Game {
     this.lastTime = performance.now();
     requestAnimationFrame(this.gameLoop.bind(this));
 
+    // Initialize random starting news (after Welcome message)
+    this.initializeStartingNews();
+
     // Show debug indicator if in debug mode
     if (this.debugMode) {
       this.showDebugIndicator();
@@ -187,8 +208,99 @@ class Game {
 
     // Setup save URL button
     this.setupSaveButton();
+    
+    // Setup ticker scroll and pause on hover
+    this.setupTickerScroll();
 
     console.log('Game initialized!');
+  }
+
+  /**
+   * Add random starting news items so each game feels fresh
+   */
+  private initializeStartingNews(): void {
+    // Add 2-3 random flavor/educational items
+    const flavorNews = this.newsSystem.getFlavorNews();
+    if (flavorNews) {
+      this.addNewsItem(flavorNews, 'flavor');
+    }
+    
+    const eduNews = this.newsSystem.getEducationalNews();
+    if (eduNews) {
+      this.addNewsItem(eduNews, 'flavor'); // Educational uses flavor style (gray)
+    }
+    
+    // Maybe add another flavor item
+    if (Math.random() > 0.5) {
+      const moreFlavorNews = this.newsSystem.getFlavorNews();
+      if (moreFlavorNews) {
+        this.addNewsItem(moreFlavorNews, 'flavor');
+      }
+    }
+  }
+
+  /**
+   * Setup JavaScript-based ticker scrolling for true infinite scroll
+   */
+  private setupTickerScroll(): void {
+    const ticker = document.getElementById('ticker-content');
+    const tickerContainer = document.getElementById('news-ticker');
+    if (!ticker || !tickerContainer) return;
+    
+    // Start position off-screen to the right
+    const containerWidth = tickerContainer.offsetWidth;
+    this.tickerPosition = containerWidth;
+    ticker.style.transform = `translateX(${this.tickerPosition}px)`;
+    
+    // Pause on hover
+    tickerContainer.addEventListener('mouseenter', () => {
+      this.tickerPaused = true;
+    });
+    tickerContainer.addEventListener('mouseleave', () => {
+      this.tickerPaused = false;
+    });
+    
+    this.lastTickerUpdate = performance.now();
+  }
+
+  /**
+   * Update ticker scroll position - called from game loop
+   */
+  private updateTickerScroll(timestamp: number): void {
+    if (this.tickerPaused) {
+      this.lastTickerUpdate = timestamp;
+      return;
+    }
+    
+    const ticker = document.getElementById('ticker-content');
+    if (!ticker) return;
+    
+    const deltaTime = (timestamp - this.lastTickerUpdate) / 1000;
+    this.lastTickerUpdate = timestamp;
+    
+    // Move ticker left
+    this.tickerPosition -= this.TICKER_SPEED * deltaTime;
+    
+    // Get ticker width (all items)
+    const tickerWidth = ticker.scrollWidth;
+    
+    // If ticker has scrolled completely off screen to the left, reset
+    if (this.tickerPosition < -tickerWidth) {
+      // Remove old items that have scrolled past, keep recent ones
+      const items = ticker.querySelectorAll('.ticker-item');
+      const itemsToKeep = Math.min(items.length, 10); // Keep last 10 items
+      while (items.length > itemsToKeep && ticker.firstChild) {
+        ticker.removeChild(ticker.firstChild);
+      }
+      
+      // Reset position to start from right edge
+      const tickerContainer = document.getElementById('news-ticker');
+      if (tickerContainer) {
+        this.tickerPosition = tickerContainer.offsetWidth;
+      }
+    }
+    
+    ticker.style.transform = `translateX(${this.tickerPosition}px)`;
   }
 
   private showDebugIndicator(): void {
@@ -548,7 +660,11 @@ class Game {
       const asteroid = this.asteroidData.get(userData.id);
       if (!asteroid) return;
 
-      const distanceFromEarth = Math.abs(asteroid.semiMajorAxis - 1.0);
+      // Get rendered positions for accurate distance
+      const asteroidAngle = this.solarSystem?.getAsteroidAngle(userData.id);
+      const earthAngle = this.solarSystem?.getEarthAngle();
+      const distanceInfo = calculateDistanceFromEarth(asteroid, this.gameState.data.gameTime, asteroidAngle, earthAngle);
+      const distanceStr = `${formatDistance(distanceInfo.current)} (${distanceInfo.isNear ? 'near' : 'far'})`;
       const diameterStr = asteroid.diameter ? formatDiameter(asteroid.diameter) : 'Unknown';
       const massStr = asteroid.mass ? formatMass(asteroid.mass) : 'Unknown';
       const wikiUrl = getAsteroidWikipediaUrl(asteroid.id, asteroid.name);
@@ -564,11 +680,20 @@ class Game {
         <p><span class="label">Type:</span> ${asteroid.taxonomicClass}-class</p>
         <p><span class="label">Diameter:</span> ${diameterStr}</p>
         <p><span class="label">Mass:</span> ${massStr}</p>
-        <p><span class="label">From Earth:</span> ${formatDistance(distanceFromEarth)}</p>
+        <p><span class="label">From Earth:</span> ${distanceStr}</p>
         <p><span class="label">Status:</span> ${visitedHtml}</p>
         <p style="margin-top: 5px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff; font-size: 11px;">Wiki ↗</a></p>
       `;
     }
+  }
+
+  /**
+   * Get distance info for an asteroid using rendered positions
+   */
+  private getAsteroidDistanceInfo(asteroid: AsteroidInfo): { current: number; min: number; max: number; isNear: boolean } {
+    const asteroidAngle = this.solarSystem?.getAsteroidAngle(asteroid.id);
+    const earthAngle = this.solarSystem?.getEarthAngle();
+    return calculateDistanceFromEarth(asteroid, this.gameState.data.gameTime, asteroidAngle, earthAngle);
   }
 
   private onPlanMission(): void {
@@ -770,43 +895,60 @@ class Game {
     
     const resourceName = this.selectedContract?.resourceType.replace('_', ' ') || 'resources';
     
-    // Get list of mined asteroids to filter out
-    const minedAsteroids = this.gameState.data.minedAsteroids;
+    // Wikipedia links for asteroid types
+    const asteroidTypeWikiLinks: Record<string, string> = {
+      'C': 'https://en.wikipedia.org/wiki/C-type_asteroid',
+      'S': 'https://en.wikipedia.org/wiki/S-type_asteroid',
+      'M': 'https://en.wikipedia.org/wiki/M-type_asteroid',
+      'Q': 'https://en.wikipedia.org/wiki/Q-type_asteroid',
+      'V': 'https://en.wikipedia.org/wiki/V-type_asteroid',
+      'E': 'https://en.wikipedia.org/wiki/E-type_asteroid',
+      'D': 'https://en.wikipedia.org/wiki/D-type_asteroid',
+      'P': 'https://en.wikipedia.org/wiki/P-type_asteroid',
+      'X': 'https://en.wikipedia.org/wiki/X-type_asteroid',
+    };
     
     if (hint) {
-      hint.textContent = this.selectedContract
-        ? `Showing asteroids likely to contain ${resourceName}. Best types: ${goodTypes.slice(0, 3).join(', ')}-class.`
-        : 'Select an asteroid to mine.';
+      if (this.selectedContract) {
+        const typeLinks = goodTypes.slice(0, 3).map(type => {
+          const url = asteroidTypeWikiLinks[type];
+          return url 
+            ? `<a href="${url}" target="_blank" class="type-link">${type}</a>` 
+            : type;
+        }).join(', ');
+        hint.innerHTML = `Showing asteroids likely to contain ${resourceName}. Best types: ${typeLinks}-class.`;
+      } else {
+        hint.textContent = 'Select an asteroid to mine.';
+      }
     }
 
-    // Score and sort asteroids by suitability, excluding mined asteroids
-    const scoredAsteroids = Array.from(this.asteroidData.values())
-      .filter(asteroid => !minedAsteroids.includes(asteroid.id)) // Filter out mined asteroids
-      .map(asteroid => {
-        const typeIndex = goodTypes.indexOf(asteroid.taxonomicClass);
-        const typeScore = typeIndex >= 0 ? (goodTypes.length - typeIndex) / goodTypes.length : 0;
-        const sizeScore = asteroid.diameter ? Math.min(asteroid.diameter / 50, 1) : 0.3;
-        const distanceScore = 1 - Math.min(Math.abs(asteroid.semiMajorAxis - 1) / 5, 1);
-        
-        return {
-          asteroid,
-          score: typeScore * 0.5 + sizeScore * 0.3 + distanceScore * 0.2,
-          matchPercent: Math.round((typeScore * 0.7 + sizeScore * 0.3) * 100),
-        };
-      }).sort((a, b) => b.score - a.score);
+    // Score and sort asteroids by suitability, excluding unavailable asteroids
+    const availableAsteroids = Array.from(this.asteroidData.values())
+      .filter(asteroid => this.isAsteroidAvailable(asteroid.id)); // Filter out mined and competitor-blocked
+    
+    // Use centralized match calculation if we have a contract
+    let scoredAsteroids: { asteroid: AsteroidInfo; matchPercent: number }[];
+    
+    if (this.selectedContract) {
+      const matchResults = calculateAsteroidMatches(availableAsteroids, this.selectedContract.resourceType);
+      scoredAsteroids = matchResults.map(r => ({ asteroid: r.asteroid, matchPercent: r.matchPercent }));
+    } else {
+      // No contract - just show all asteroids with neutral match
+      scoredAsteroids = availableAsteroids.map(asteroid => ({ asteroid, matchPercent: 50 }));
+    }
 
     // Show top 8 suggestions
     const topSuggestions = scoredAsteroids.slice(0, 8);
 
     container.innerHTML = topSuggestions.map(({ asteroid, matchPercent }) => {
-      const distanceFromEarth = Math.abs(asteroid.semiMajorAxis - 1.0);
+      const distanceInfo = this.getAsteroidDistanceInfo(asteroid);
       const diameterStr = asteroid.diameter ? formatDiameter(asteroid.diameter) : '?';
       
       return `
         <div class="target-card" data-asteroid-id="${asteroid.id}">
           <div class="target-info">
             <div class="target-name">${asteroid.name}</div>
-            <div class="target-details">${asteroid.taxonomicClass}-class • ${diameterStr} • ${formatDistance(distanceFromEarth)}</div>
+            <div class="target-details">${asteroid.taxonomicClass}-class • ${diameterStr} • ${formatDistance(distanceInfo.current)} (${distanceInfo.isNear ? 'near' : 'far'})</div>
           </div>
           <div class="target-match">
             <div class="match-label">Match</div>
@@ -839,7 +981,8 @@ class Game {
     if (!container || !this.currentMissionAsteroid) return;
 
     const asteroid = this.currentMissionAsteroid;
-    const distanceFromEarth = Math.abs(asteroid.semiMajorAxis - 1.0);
+    const distanceInfo = this.getAsteroidDistanceInfo(asteroid);
+    const distanceFromEarth = distanceInfo.current;
     const techEffects = this.gameState.getTechEffects();
     const duration = calculateMissionDuration(distanceFromEarth, techEffects.travelTimeModifier);
     const diameterStr = asteroid.diameter ? formatDiameter(asteroid.diameter) : 'Unknown';
@@ -859,7 +1002,11 @@ class Game {
       </div>
       <div class="summary-row">
         <span class="label">Distance:</span>
-        <span class="value">${formatDistance(distanceFromEarth)} from Earth</span>
+        <span class="value">${formatDistance(distanceFromEarth)} from Earth (${distanceInfo.isNear ? 'near approach' : 'far approach'})</span>
+      </div>
+      <div class="summary-row">
+        <span class="label">Range:</span>
+        <span class="value">${formatDistance(distanceInfo.min)} - ${formatDistance(distanceInfo.max)}</span>
       </div>
       <div class="summary-row">
         <span class="label">Diameter:</span>
@@ -867,7 +1014,7 @@ class Game {
       </div>
       <div class="summary-row">
         <span class="label">Est. Trip Duration:</span>
-        <span class="value">${duration.total} days</span>
+        <span class="value">${duration.total.toFixed(1)} days</span>
       </div>
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(84, 230, 255, 0.2);">
         <div style="color: var(--text-muted); font-size: 11px; margin-bottom: 6px;">LIKELY RESOURCES:</div>
@@ -975,7 +1122,8 @@ class Game {
     const provider = this.selectedProvider;
     const crew = this.selectedCrew;
     
-    const distanceFromEarth = Math.abs(asteroid.semiMajorAxis - 1.0);
+    const distanceInfo = this.getAsteroidDistanceInfo(asteroid);
+    const distanceFromEarth = distanceInfo.current;
     const techEffects = this.gameState.getTechEffects();
     const duration = calculateMissionDuration(distanceFromEarth, techEffects.travelTimeModifier);
     const costs = calculateMissionCost(provider, crew, duration.total, techEffects.crewCostModifier);
@@ -994,7 +1142,7 @@ class Game {
         </div>
         <div class="summary-row">
           <span class="label">Distance:</span>
-          <span class="value">${formatDistance(distanceFromEarth)}</span>
+          <span class="value">${formatDistance(distanceFromEarth)} (${distanceInfo.isNear ? 'near' : 'far'})</span>
         </div>
       </div>
 
@@ -1010,7 +1158,7 @@ class Game {
         </div>
         <div class="summary-row">
           <span class="label">Total Duration:</span>
-          <span class="value">${duration.total} days</span>
+          <span class="value">${duration.total.toFixed(1)} days</span>
         </div>
         <div class="summary-row">
           <span class="label">Est. Yield:</span>
@@ -1054,7 +1202,8 @@ class Game {
     const provider = this.selectedProvider;
     const crew = this.selectedCrew;
     
-    const distanceFromEarth = Math.abs(asteroid.semiMajorAxis - 1.0);
+    const distanceInfo = this.getAsteroidDistanceInfo(asteroid);
+    const distanceFromEarth = distanceInfo.current;
     const techEffects = this.gameState.getTechEffects();
     const duration = calculateMissionDuration(distanceFromEarth, techEffects.travelTimeModifier);
     const costs = calculateMissionCost(provider, crew, duration.total, techEffects.crewCostModifier);
@@ -1089,6 +1238,14 @@ class Game {
       ? ownedDepotIds[0]
       : undefined;
 
+    // Generate captain name and delivery destination
+    const captainName = generateCaptainName();
+    const deliveryDestinations: ('LEO' | 'GEO' | 'Lunar')[] = ['LEO', 'GEO', 'Lunar'];
+    const deliveryDestination = deliveryDestinations[Math.floor(Math.random() * deliveryDestinations.length)];
+    
+    // Calculate expected payload
+    const expectedPayload = estimateResourceYield(asteroid.diameter, asteroid.taxonomicClass, crew.miningEfficiency, asteroid.mass);
+
     // Create mission
     const mission: Mission = {
       id: generateMissionId(),
@@ -1098,12 +1255,18 @@ class Game {
       providerName: provider.name,
       crewId: crew.id,
       crewName: crew.name,
+      captainName,
       // Contract info
       contractId: this.selectedContract?.id,
+      contractVendorName: this.selectedContract?.vendorName,
       contractValue: this.selectedContract?.totalValue,
+      contractDeadline: this.selectedContract?.deadline,
       resourceType: this.selectedContract?.resourceType || this.currentMissionAsteroid?.taxonomicClass || 'Unknown',
       isSpecFreeMining: this.isSpecFreeMining,
       targetDepotId: targetDepotId,
+      // Distance
+      distanceAU: distanceFromEarth,
+      // Timing
       launchTime: this.gameState.data.gameTime,
       outboundDuration: duration.outbound,
       miningDuration: duration.mining,
@@ -1121,6 +1284,9 @@ class Game {
       phaseJustChanged: false,
       providerReliability: provider.reliability,
       crewReliability: crew.reliability,
+      // Payload and delivery
+      expectedPayload,
+      deliveryDestination,
     };
 
     // Add to game state
@@ -1285,17 +1451,313 @@ class Game {
     const content = document.getElementById('phase-modal-content');
     const image = document.getElementById('phase-modal-image') as HTMLImageElement;
     const title = document.getElementById('phase-modal-title');
-    const asteroid = document.getElementById('phase-modal-asteroid');
+    const asteroidInfo = document.getElementById('phase-modal-asteroid-info');
     const description = document.getElementById('phase-modal-description');
+    const details = document.getElementById('phase-modal-details');
 
-    if (!modal || !content || !image || !title || !asteroid || !description) return;
+    if (!modal || !content || !image || !title || !asteroidInfo || !description || !details) return;
 
-    // Set content
+    // Get asteroid data for display
+    const asteroid = this.asteroidData.get(mission.asteroidId);
+    const AU_IN_KM = 149597870.7;
+    const SPEED_OF_LIGHT = 299792.458; // km/s
+
+    // Set basic content
     image.src = phaseInfo.image;
     image.alt = phaseInfo.name;
     title.textContent = phaseInfo.name;
-    asteroid.textContent = `Mission to ${mission.asteroidName}`;
     description.textContent = phaseInfo.description;
+
+    // Build asteroid info section with Wikipedia link
+    const asteroidWikiName = mission.asteroidName.replace(/\s+/g, '_');
+    const wikipediaUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(asteroidWikiName)}`;
+    const distanceKm = mission.distanceAU ? (mission.distanceAU * AU_IN_KM).toFixed(0) : 'N/A';
+    const diameterDisplay = asteroid?.diameter ? `${asteroid.diameter.toFixed(1)} km` : 'Unknown';
+    const typeDisplay = asteroid?.taxonomicClass || 'Unknown';
+    
+    asteroidInfo.innerHTML = `
+      <strong>Target:</strong> <a href="${wikipediaUrl}" target="_blank" rel="noopener">${mission.asteroidName}</a><br>
+      <strong>Type:</strong> ${typeDisplay}-type &nbsp;|&nbsp; 
+      <strong>Diameter:</strong> ${diameterDisplay} &nbsp;|&nbsp;
+      <strong>Distance:</strong> ${mission.distanceAU?.toFixed(3) || 'N/A'} AU (${Number(distanceKm).toLocaleString()} km)
+    `;
+
+    // Build phase-specific details
+    let detailsHtml = '';
+    
+    switch (mission.currentPhase) {
+      case MissionPhase.CONTRACT_SIGNED: {
+        // Show payload type, qty, due date, agreed price, market price
+        // Game starts January 1, 2032 - calculate due date from launchTime + deadline
+        const gameStartDate = new Date(2032, 0, 1); // January 1, 2032
+        const deadlineDays = mission.contractDeadline || mission.totalDuration;
+        const dueDateGameDays = mission.launchTime + deadlineDays;
+        const dueDate = new Date(gameStartDate.getTime() + dueDateGameDays * 24 * 60 * 60 * 1000);
+        const dueDateStr = dueDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const currentPrice = getSpotPrice(this.gameState.data.market, mission.resourceType as ResourceType);
+        const expectedPayload = mission.expectedPayload || 0;
+        
+        // Show warning if mission duration exceeds deadline
+        const missionDays = mission.totalDuration;
+        const isAchievable = missionDays <= deadlineDays;
+        const daysToSpare = deadlineDays - missionDays;
+        
+        // Calculate contract price per ton and premium
+        const contractPricePerTon = mission.contractValue && expectedPayload > 0 
+          ? mission.contractValue / expectedPayload 
+          : null;
+        const premiumPercent = contractPricePerTon && currentPrice > 0
+          ? ((contractPricePerTon - currentPrice) / currentPrice) * 100
+          : null;
+        
+        detailsHtml = `
+          <div class="detail-section">
+            <div><span class="detail-label">Payload Type:</span> <span class="detail-value highlight">${mission.resourceType}</span></div>
+            <div><span class="detail-label">Expected Yield:</span> <span class="detail-value">${expectedPayload.toFixed(1)} tons</span></div>
+            <div><span class="detail-label">Due Date:</span> <span class="detail-value">${dueDateStr}</span> <span style="color: var(--text-muted);">(${deadlineDays} days)</span></div>
+            <div><span class="detail-label">Est. Mission Time:</span> <span class="detail-value ${isAchievable ? '' : 'loss'}">${missionDays.toFixed(1)} days</span> ${isAchievable ? `<span class="detail-value profit">(${daysToSpare.toFixed(1)} days to spare)</span>` : '<span class="detail-value loss">(WILL BE LATE)</span>'}</div>
+            ${mission.contractValue ? `<div><span class="detail-label">Contract Value:</span> <span class="detail-value profit">$${mission.contractValue.toLocaleString()}</span></div>` : ''}
+            ${mission.contractVendorName ? `<div><span class="detail-label">Vendor:</span> <span class="detail-value">${mission.contractVendorName}</span></div>` : ''}
+            ${contractPricePerTon ? `<div><span class="detail-label">Agreed Price:</span> <span class="detail-value">$${contractPricePerTon.toLocaleString(undefined, {maximumFractionDigits: 0})}/ton</span> ${premiumPercent !== null ? `<span class="detail-value ${premiumPercent >= 0 ? 'profit' : 'loss'}">(${premiumPercent >= 0 ? '+' : ''}${premiumPercent.toFixed(1)}% vs market)</span>` : ''}</div>` : ''}
+            <div><span class="detail-label">Current Market Price:</span> <span class="detail-value">$${currentPrice.toLocaleString()}/ton</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      case MissionPhase.LAUNCH: {
+        // Show provider, payload weight, launch date, wet dress rehearsal
+        const launchDate = new Date(mission.phaseStartTime);
+        const launchDateStr = launchDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const payloadWeight = mission.expectedPayload ? (mission.expectedPayload * 1000).toFixed(0) : 'N/A'; // Convert tons to kg
+        
+        detailsHtml = `
+          <div class="detail-section">
+            <div><span class="detail-label">Launch Provider:</span> <span class="detail-value highlight">${mission.providerName}</span></div>
+            <div><span class="detail-label">Payload to Orbit:</span> <span class="detail-value">${Number(payloadWeight).toLocaleString()} kg</span></div>
+            <div><span class="detail-label">Launch Date:</span> <span class="detail-value">${launchDateStr}</span></div>
+            <div><span class="detail-label">Wet Dress Rehearsal:</span> <span class="detail-value profit">✓ PASSED</span></div>
+            <div><span class="detail-label">Provider Reliability:</span> <span class="detail-value">${((mission.providerReliability || 0.98) * 100).toFixed(0)}%</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      case MissionPhase.OUTBOUND: {
+        // Show vehicle speed, distance in AU and km, captain's name
+        const distanceKmNum = mission.distanceAU ? mission.distanceAU * AU_IN_KM : 0;
+        const travelTimeSeconds = (mission.outboundDuration || 30) * 24 * 60 * 60;
+        const speedKmS = distanceKmNum / travelTimeSeconds;
+        const speedPercentC = (speedKmS / SPEED_OF_LIGHT) * 100;
+        
+        detailsHtml = `
+          <div class="detail-section">
+            <div><span class="detail-label">Captain:</span> <span class="detail-value highlight">${mission.captainName || 'Unknown'}</span></div>
+            <div><span class="detail-label">Distance:</span> <span class="detail-value">${mission.distanceAU?.toFixed(3) || 'N/A'} AU (${distanceKmNum.toLocaleString(undefined, {maximumFractionDigits: 0})} km)</span></div>
+            <div><span class="detail-label">Vehicle Speed:</span> <span class="detail-value">${speedKmS.toFixed(1)} km/s (${speedPercentC.toFixed(4)}% c)</span></div>
+            <div><span class="detail-label">Travel Time:</span> <span class="detail-value">${mission.outboundDuration || 30} days</span></div>
+            <div><span class="detail-label">Crew:</span> <span class="detail-value">${mission.crewName}</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      case MissionPhase.DRILLING: {
+        // Show crew type, current payload extracted (based on time elapsed)
+        const phaseElapsed = (this.gameState.data.gameTime - mission.phaseStartTime) / (24 * 60 * 60 * 1000);
+        const phaseDuration = mission.miningDuration || 30;
+        const progress = Math.min(phaseElapsed / phaseDuration, 1);
+        const currentExtracted = (mission.expectedPayload || 0) * progress;
+        
+        detailsHtml = `
+          <div class="detail-section">
+            <div><span class="detail-label">Crew Type:</span> <span class="detail-value highlight">${mission.crewName}</span></div>
+            <div><span class="detail-label">Mining Progress:</span> <span class="detail-value">${(progress * 100).toFixed(1)}%</span></div>
+            <div><span class="detail-label">Payload Extracted:</span> <span class="detail-value">${currentExtracted.toFixed(2)} tons of ${mission.resourceType}</span></div>
+            <div><span class="detail-label">Target Payload:</span> <span class="detail-value">${(mission.expectedPayload || 0).toFixed(1)} tons</span></div>
+            <div><span class="detail-label">Crew Reliability:</span> <span class="detail-value">${((mission.crewReliability || 0.98) * 100).toFixed(0)}%</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      case MissionPhase.INBOUND: {
+        // Show vehicle speed, distance, captain, payload type/weight/%
+        const distanceKmNum = mission.distanceAU ? mission.distanceAU * AU_IN_KM : 0;
+        const travelTimeSeconds = (mission.returnDuration || 30) * 24 * 60 * 60;
+        const speedKmS = distanceKmNum / travelTimeSeconds;
+        const speedPercentC = (speedKmS / SPEED_OF_LIGHT) * 100;
+        const actualPayload = mission.resourcesGained || mission.expectedPayload || 0;
+        const payloadPercent = mission.expectedPayload ? (actualPayload / mission.expectedPayload) * 100 : 100;
+        
+        detailsHtml = `
+          <div class="detail-section">
+            <div><span class="detail-label">Captain:</span> <span class="detail-value highlight">${mission.captainName || 'Unknown'}</span></div>
+            <div><span class="detail-label">Return Distance:</span> <span class="detail-value">${mission.distanceAU?.toFixed(3) || 'N/A'} AU (${distanceKmNum.toLocaleString(undefined, {maximumFractionDigits: 0})} km)</span></div>
+            <div><span class="detail-label">Vehicle Speed:</span> <span class="detail-value">${speedKmS.toFixed(1)} km/s (${speedPercentC.toFixed(4)}% c)</span></div>
+            <div><span class="detail-label">Travel Time:</span> <span class="detail-value">${mission.returnDuration || 30} days</span></div>
+          </div>
+          <div class="detail-section">
+            <div><span class="detail-label">Payload Type:</span> <span class="detail-value highlight">${mission.resourceType}</span></div>
+            <div><span class="detail-label">Payload Weight:</span> <span class="detail-value">${actualPayload.toFixed(1)} tons (${(actualPayload * 1000).toLocaleString()} kg)</span></div>
+            <div><span class="detail-label">% of Target:</span> <span class="detail-value ${payloadPercent >= 100 ? 'profit' : ''}">${payloadPercent.toFixed(1)}%</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      case MissionPhase.DELIVERING_PAYLOAD: {
+        // Show payload info, delivery destination
+        const actualPayload = mission.resourcesGained || mission.expectedPayload || 0;
+        const payloadPercent = mission.expectedPayload ? (actualPayload / mission.expectedPayload) * 100 : 100;
+        const destinationNames = { 'LEO': 'Low Earth Orbit', 'GEO': 'Geosynchronous Orbit', 'Lunar': 'Lunar Storage' };
+        const destination = mission.deliveryDestination || 'LEO';
+        
+        detailsHtml = `
+          <div class="detail-section">
+            <div><span class="detail-label">Payload Type:</span> <span class="detail-value highlight">${mission.resourceType}</span></div>
+            <div><span class="detail-label">Payload Weight:</span> <span class="detail-value">${actualPayload.toFixed(1)} tons (${(actualPayload * 1000).toLocaleString()} kg)</span></div>
+            <div><span class="detail-label">% of Target:</span> <span class="detail-value ${payloadPercent >= 100 ? 'profit' : ''}">${payloadPercent.toFixed(1)}%</span></div>
+          </div>
+          <div class="detail-section">
+            <div><span class="detail-label">Delivery To:</span> <span class="detail-value highlight">${destinationNames[destination]}</span></div>
+            <div><span class="detail-label">Status:</span> <span class="detail-value profit">PAYLOAD TRANSFER IN PROGRESS</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      case MissionPhase.MISSION_SUCCESS: {
+        // Full breakdown: payload, contract value, deviations, costs, profit
+        // NOTE: Must match onMissionComplete calculation for consistency
+        const actualPayload = mission.resourcesGained || mission.expectedPayload || 0;
+        const payloadPercent = mission.expectedPayload ? (actualPayload / mission.expectedPayload) * 100 : 100;
+        
+        // Calculate revenue - must match onMissionComplete logic
+        const crew = CREW_TYPES.find(c => c.id === mission.crewId);
+        const efficiency = crew?.miningEfficiency || 1;
+        const resourcePrice = getSpotPrice(this.gameState.data.market, mission.resourceType as ResourceType);
+        
+        let finalRevenue: number;
+        let lateModifier = 1.0;
+        let daysLate = 0;
+        
+        if (mission.contractValue) {
+          // Contract-based: use crew efficiency modifier (same as onMissionComplete)
+          const efficiencyModifier = 0.8 + (efficiency * 0.4); // Range: 0.88 to 1.28
+          let baseRevenue = Math.round(mission.contractValue * efficiencyModifier);
+          
+          // Apply late delivery penalty if applicable
+          if (mission.contractDeadline) {
+            const missionDuration = this.gameState.data.gameTime - mission.launchTime;
+            daysLate = Math.max(0, missionDuration - mission.contractDeadline);
+            if (daysLate > 0) {
+              const penaltyPercent = Math.min(1.0, daysLate / mission.contractDeadline);
+              lateModifier = 1.0 - penaltyPercent;
+            }
+          }
+          
+          finalRevenue = Math.round(baseRevenue * lateModifier);
+        } else {
+          // Market-based
+          finalRevenue = actualPayload * resourcePrice;
+        }
+        
+        // Calculate profit (costs were deducted at contract signing, revenue added at completion)
+        const totalCosts = mission.totalCost || 0;
+        const netProfit = finalRevenue - totalCosts;
+        
+        const destinationNames = { 'LEO': 'Low Earth Orbit', 'GEO': 'Geosynchronous Orbit', 'Lunar': 'Lunar Storage' };
+        const destination = mission.deliveryDestination || 'LEO';
+        
+        // Show efficiency bonus/penalty
+        const efficiencyPercent = mission.contractValue ? ((0.8 + (efficiency * 0.4)) * 100 - 100) : 0;
+        const latePenaltyPercent = (1 - lateModifier) * 100;
+        
+        detailsHtml = `
+          <div class="detail-section success-section">
+            <div><span class="detail-label">Payload Delivered:</span> <span class="detail-value highlight">${actualPayload.toFixed(1)} tons of ${mission.resourceType}</span></div>
+            <div><span class="detail-label">% of Target:</span> <span class="detail-value ${payloadPercent >= 100 ? 'profit' : ''}">${payloadPercent.toFixed(1)}%</span></div>
+            <div><span class="detail-label">Delivered To:</span> <span class="detail-value">${destinationNames[destination]}</span></div>
+          </div>
+          <div class="detail-section">
+            <div><span class="detail-label">${mission.contractValue ? 'Contract Value:' : 'Market Value:'}</span> <span class="detail-value">$${(mission.contractValue || (actualPayload * resourcePrice)).toLocaleString()}</span></div>
+            ${mission.contractValue ? `<div><span class="detail-label">Crew Efficiency (${mission.crewName}):</span> <span class="detail-value ${efficiencyPercent >= 0 ? 'profit' : 'loss'}">${efficiencyPercent >= 0 ? '+' : ''}${efficiencyPercent.toFixed(1)}%</span></div>` : ''}
+            ${daysLate > 0 ? `<div><span class="detail-label">Late Penalty (${daysLate.toFixed(1)} days late):</span> <span class="detail-value loss">-${latePenaltyPercent.toFixed(1)}%</span></div>` : ''}
+            <div><span class="detail-label">Final Payout:</span> <span class="detail-value profit">$${finalRevenue.toLocaleString()}</span></div>
+          </div>
+          <div class="detail-section">
+            <div><span class="detail-label">Vehicle Rental (${mission.providerName}):</span> <span class="detail-value">$${(mission.launchCost || 0).toLocaleString()}</span></div>
+            <div><span class="detail-label">Crew Rental (${mission.crewName}):</span> <span class="detail-value">$${(mission.crewCost || 0).toLocaleString()}</span></div>
+            <div><span class="detail-label">Total Costs:</span> <span class="detail-value">$${totalCosts.toLocaleString()}</span></div>
+          </div>
+          <div class="detail-section ${netProfit >= 0 ? 'success-section' : 'failure-section'}">
+            <div><span class="detail-label">NET PROFIT:</span> <span class="detail-value ${netProfit >= 0 ? 'profit' : 'loss'}">$${netProfit.toLocaleString()}</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      // Terminal failure states
+      case MissionPhase.LAUNCH_ANOMALY:
+      case MissionPhase.IN_FLIGHT_ANOMALY:
+      case MissionPhase.EXPLOSION_AT_DRILL_SITE: {
+        detailsHtml = `
+          <div class="detail-section failure-section">
+            <div><span class="detail-label">Mission Status:</span> <span class="detail-value loss">MISSION LOST</span></div>
+            <div><span class="detail-label">Total Investment Lost:</span> <span class="detail-value loss">$${(mission.totalCost || 0).toLocaleString()}</span></div>
+            <div><span class="detail-label">Vehicle:</span> <span class="detail-value">${mission.providerName}</span></div>
+            <div><span class="detail-label">Crew:</span> <span class="detail-value">${mission.crewName}</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      // Pirate encounters
+      case MissionPhase.PIRATE_ATTACK_OUTBOUND:
+      case MissionPhase.PIRATE_ATTACK_INBOUND: {
+        detailsHtml = `
+          <div class="detail-section failure-section">
+            <div><span class="detail-label">Alert:</span> <span class="detail-value loss">HOSTILE CONTACT DETECTED</span></div>
+            <div><span class="detail-label">Captain:</span> <span class="detail-value">${mission.captainName || 'Unknown'}</span></div>
+            <div><span class="detail-label">Crew:</span> <span class="detail-value">${mission.crewName}</span></div>
+            <div><span class="detail-label">Payload at Risk:</span> <span class="detail-value">${(mission.expectedPayload || 0).toFixed(1)} tons of ${mission.resourceType}</span></div>
+          </div>
+        `;
+        break;
+      }
+      
+      case MissionPhase.PIRATES_DEFEATED: {
+        detailsHtml = `
+          <div class="detail-section success-section">
+            <div><span class="detail-label">Combat Result:</span> <span class="detail-value profit">PIRATES DEFEATED</span></div>
+            <div><span class="detail-label">Captain:</span> <span class="detail-value">${mission.captainName || 'Unknown'}</span></div>
+            <div><span class="detail-label">Payload Secured:</span> <span class="detail-value">${(mission.expectedPayload || 0).toFixed(1)} tons of ${mission.resourceType}</span></div>
+            ${mission.combatResult ? `<div style="margin-top: 8px; font-style: italic; color: var(--text-muted);">${mission.combatResult.narrative}</div>` : ''}
+          </div>
+        `;
+        break;
+      }
+      
+      case MissionPhase.PIRATES_WON:
+      case MissionPhase.PAYLOAD_SEIZED: {
+        const payloadLost = mission.currentPhase === MissionPhase.PIRATES_WON ? 'ALL' : '80%';
+        detailsHtml = `
+          <div class="detail-section failure-section">
+            <div><span class="detail-label">Combat Result:</span> <span class="detail-value loss">${mission.currentPhase === MissionPhase.PIRATES_WON ? 'TOTAL LOSS' : 'PAYLOAD SEIZED'}</span></div>
+            <div><span class="detail-label">Payload Lost:</span> <span class="detail-value loss">${payloadLost}</span></div>
+            <div><span class="detail-label">Captain:</span> <span class="detail-value">${mission.captainName || 'Unknown'}</span></div>
+            ${mission.combatResult ? `<div style="margin-top: 8px; font-style: italic; color: var(--text-muted);">${mission.combatResult.narrative}</div>` : ''}
+          </div>
+        `;
+        break;
+      }
+      
+      default:
+        detailsHtml = '';
+    }
+    
+    details.innerHTML = detailsHtml;
 
     // Set styling based on terminal state
     content.classList.remove('failure', 'success');
@@ -1356,8 +1818,22 @@ class Game {
     // Rotate tips every 30 seconds
     setInterval(() => this.showRandomTip(), 30000);
 
-    // Open help modal on "more" click
-    document.getElementById('help-more-link')?.addEventListener('click', () => this.showHelpModal());
+    // Update layout first
+    this.updateHelpHeaderGlow();
+    this.updateLeftPanelLayout();
+
+    // Use event delegation on left panel to catch clicks on help elements
+    const leftPanel = document.getElementById('left-panel');
+    if (leftPanel) {
+      leftPanel.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.id === 'help-header' || target.id === 'help-more-link' ||
+            target.closest('#help-header') || target.closest('#help-more-link')) {
+          e.preventDefault();
+          this.showHelpModal();
+        }
+      });
+    }
 
     // Close help modal
     document.getElementById('help-modal-close')?.addEventListener('click', () => this.closeHelpModal());
@@ -1366,6 +1842,51 @@ class Game {
         this.closeHelpModal();
       }
     });
+    
+    // Subscribe to state changes to update UI when level changes
+    this.gameState.subscribe('help-panel-layout', () => {
+      this.updateHelpHeaderGlow();
+      this.updateLeftPanelLayout();
+    });
+  }
+  
+  private updateHelpHeaderGlow(): void {
+    const header = document.getElementById('help-header');
+    if (!header) return;
+    
+    // Show glow for new players (no missions completed, starting balance intact)
+    const isNewPlayer = this.gameState.data.missionsCompleted === 0 && 
+                        this.gameState.data.balance >= 50000000;
+    
+    if (isNewPlayer) {
+      header.classList.add('new-player-glow');
+    } else {
+      header.classList.remove('new-player-glow');
+    }
+  }
+  
+  private updateLeftPanelLayout(): void {
+    const level = getCurrentLevel(this.gameState.data.missionsCompleted).id;
+    
+    const techSection = document.getElementById('tech-tree-section');
+    const assetsSection = document.getElementById('assets-section');
+    const storageSection = document.getElementById('storage-section');
+    
+    if (level === 1) {
+      // Level 1: Just hide tech/assets/storage - help stays in original position
+      if (techSection) techSection.style.display = 'none';
+      if (assetsSection) assetsSection.style.display = 'none';
+      if (storageSection) storageSection.style.display = 'none';
+    } else {
+      // Level 2+: Show appropriate sections
+      if (techSection) techSection.style.display = 'block';
+      if (assetsSection) assetsSection.style.display = 'block';
+      if (level >= 3 && storageSection) {
+        storageSection.style.display = 'block';
+      } else if (storageSection) {
+        storageSection.style.display = 'none';
+      }
+    }
   }
 
   private showRandomTip(): void {
@@ -1383,17 +1904,19 @@ class Game {
     const tipsList = document.getElementById('help-tips-list');
     const refsList = document.getElementById('help-references-list');
 
-    if (!modal || !walkthrough || !tipsList || !refsList) return;
+    if (!modal) return;
 
     // Populate walkthrough (convert markdown-style to HTML)
-    walkthrough.innerHTML = GAMEPLAY_WALKTHROUGH
-      .split('\n\n')
-      .map(para => {
-        // Convert **text** to <strong>text</strong>
-        para = para.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        return `<p>${para}</p>`;
-      })
-      .join('');
+    if (walkthrough) {
+      walkthrough.innerHTML = GAMEPLAY_WALKTHROUGH
+        .split('\n\n')
+        .map(para => {
+          // Convert **text** to <strong>text</strong>
+          para = para.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+          return `<p>${para}</p>`;
+        })
+        .join('');
+    }
 
     // Populate progression levels
     if (progressionList) {
@@ -1413,19 +1936,23 @@ class Game {
     }
 
     // Populate tips
-    tipsList.innerHTML = GAMEPLAY_TIPS
-      .map(tip => `<li>${tip.text}</li>`)
-      .join('');
+    if (tipsList) {
+      tipsList.innerHTML = GAMEPLAY_TIPS
+        .map(tip => `<li>${tip.text}</li>`)
+        .join('');
+    }
 
     // Populate references
-    refsList.innerHTML = REFERENCES
-      .map(ref => `
-        <li>
-          <a href="${ref.url}" target="_blank" rel="noopener noreferrer" class="help-reference-link">${ref.title}</a>
-          ${ref.description ? `<div class="help-reference-desc">${ref.description}</div>` : ''}
-        </li>
-      `)
-      .join('');
+    if (refsList) {
+      refsList.innerHTML = REFERENCES
+        .map(ref => `
+          <li>
+            <a href="${ref.url}" target="_blank" rel="noopener noreferrer" class="help-reference-link">${ref.title}</a>
+            ${ref.description ? `<div class="help-reference-desc">${ref.description}</div>` : ''}
+          </li>
+        `)
+        .join('');
+    }
 
     modal.classList.add('visible');
   }
@@ -2652,6 +3179,39 @@ class Game {
     if (this.solarSystem) {
       this.solarSystem.removeMissionShip(mission.id);
     }
+    
+    // Handle PAYLOAD_SEIZED - partial failure, crew survives but cargo lost
+    if (mission.currentPhase === MissionPhase.PAYLOAD_SEIZED) {
+      // No revenue, but increment mission count (experience gained)
+      this.gameState.update({
+        missionsCompleted: this.gameState.data.missionsCompleted + 1,
+      });
+      
+      // Add to flight log with zero profit
+      const logEntry: FlightLogEntry = {
+        asteroidName: mission.asteroidName,
+        resourceType: mission.resourceType || 'Unknown',
+        tons: 0,
+        profit: -mission.totalCost,
+        completedTime: this.gameState.data.gameTime,
+      };
+      const newLog = [...this.gameState.data.flightLog, logEntry].slice(-3);
+      this.gameState.update({ flightLog: newLog });
+      this.renderFlightLog();
+    }
+    
+    // Increment security relationship if security was hired (regardless of outcome)
+    if (mission.securityId) {
+      const currentRel = this.gameState.data.securityRelationships[mission.securityId] || 0;
+      if (currentRel < 10) {
+        this.gameState.update({
+          securityRelationships: {
+            ...this.gameState.data.securityRelationships,
+            [mission.securityId]: Math.min(10, currentRel + 1),
+          },
+        });
+      }
+    }
   }
 
   private onMissionComplete(mission: Mission): void {
@@ -2742,9 +3302,29 @@ class Game {
     } else if (mission.contractValue) {
       // Contract-based payout with crew efficiency modifier
       const efficiencyModifier = 0.8 + (efficiency * 0.4); // Range: 0.88 to 1.28
-      revenue = Math.round(mission.contractValue * efficiencyModifier);
+      let baseRevenue = Math.round(mission.contractValue * efficiencyModifier);
+      
+      // Apply late delivery penalty if applicable
+      let lateModifier = 1.0;
+      if (mission.contractDeadline) {
+        const missionDuration = this.gameState.data.gameTime - mission.launchTime;
+        const daysLate = Math.max(0, missionDuration - mission.contractDeadline);
+        if (daysLate > 0) {
+          // Penalty = daysLate / deadline, capped at 100%
+          const penaltyPercent = Math.min(1.0, daysLate / mission.contractDeadline);
+          lateModifier = 1.0 - penaltyPercent;
+        }
+      }
+      
+      revenue = Math.round(baseRevenue * lateModifier);
       profit = revenue - mission.totalCost;
-      newsMessage = `Mission to ${mission.asteroidName} complete! Earned ${formatCurrency(revenue)}`;
+      
+      if (lateModifier < 1.0) {
+        const penaltyPercent = ((1 - lateModifier) * 100).toFixed(1);
+        newsMessage = `Mission to ${mission.asteroidName} complete! Earned ${formatCurrency(revenue)} (${penaltyPercent}% late penalty)`;
+      } else {
+        newsMessage = `Mission to ${mission.asteroidName} complete! Earned ${formatCurrency(revenue)}`;
+      }
     } else {
       // No contract, no storage - sell at market (fallback)
       const pricePerTon = 50000;
@@ -2777,6 +3357,19 @@ class Game {
     // Remove ship from scene
     if (this.solarSystem) {
       this.solarSystem.removeMissionShip(mission.id);
+    }
+    
+    // Increment security relationship if security was hired
+    if (mission.securityId) {
+      const currentRel = this.gameState.data.securityRelationships[mission.securityId] || 0;
+      if (currentRel < 10) {
+        this.gameState.update({
+          securityRelationships: {
+            ...this.gameState.data.securityRelationships,
+            [mission.securityId]: Math.min(10, currentRel + 1),
+          },
+        });
+      }
     }
 
     // Show news
@@ -2837,6 +3430,119 @@ class Game {
     item.textContent = text;
 
     ticker.appendChild(item);
+  }
+
+  /**
+   * Periodic news generation based on game time
+   * Checks cooldowns and generates appropriate news items
+   */
+  private updateNews(): void {
+    const currentTime = this.gameState.data.gameTime;
+    
+    // Only check news every ~0.1 game days to avoid performance issues
+    if (currentTime - this.lastNewsCheck < 0.1) return;
+    this.lastNewsCheck = currentTime;
+    
+    // Check for easter eggs
+    this.checkEasterEggs();
+    
+    // Generate competitor news (every ~5 min real time = ~3.5 game days at max speed)
+    if (this.newsSystem.canShowNews('competitor', currentTime)) {
+      const availableAsteroids = Array.from(this.asteroidData.keys())
+        .filter(id => !this.gameState.data.minedAsteroids.includes(id))
+        .filter(id => !this.newsSystem.isAsteroidBlocked(id));
+      
+      if (availableAsteroids.length > 0) {
+        const result = this.newsSystem.generateCompetitorNews(availableAsteroids);
+        if (result) {
+          // Replace asteroid ID with actual name
+          let text = result.text;
+          if (result.asteroidId) {
+            const asteroid = this.asteroidData.get(result.asteroidId);
+            if (asteroid) {
+              text = text.replace(result.asteroidId, asteroid.name);
+            }
+          }
+          
+          this.addNewsItem(text, 'market'); // Competitor uses 'market' style (blue)
+          this.newsSystem.recordNewsShown('competitor', currentTime);
+          
+          // If asteroid was blocked, we might want to update UI
+          if (result.blocksAsteroid && result.asteroidId) {
+            // Asteroid is now unavailable for player
+            // This is tracked in newsSystem.isAsteroidBlocked()
+          }
+        }
+      }
+    }
+    
+    // Generate educational news
+    if (this.newsSystem.canShowNews('educational', currentTime)) {
+      const news = this.newsSystem.getEducationalNews();
+      if (news) {
+        this.addNewsItem(news, 'flavor'); // Educational uses 'flavor' style (gray)
+        this.newsSystem.recordNewsShown('educational', currentTime);
+      }
+    }
+    
+    // Generate flavor news (less frequent than educational)
+    if (this.newsSystem.canShowNews('flavor', currentTime)) {
+      const news = this.newsSystem.getFlavorNews();
+      if (news) {
+        this.addNewsItem(news, 'flavor');
+        this.newsSystem.recordNewsShown('flavor', currentTime);
+      }
+    }
+  }
+
+  /**
+   * Check for easter egg conditions
+   */
+  private checkEasterEggs(): void {
+    // Calculate current game date
+    const startDate = new Date(2032, 0, 1); // January 1, 2032
+    const currentDate = new Date(startDate.getTime() + this.gameState.data.gameTime * 24 * 60 * 60 * 1000);
+    const month = currentDate.getMonth() + 1; // 1-12
+    const day = currentDate.getDate();
+    const missions = this.gameState.data.missionsCompleted;
+    const balance = this.gameState.data.balance;
+    
+    // Determine balance tier for change detection
+    const balanceTier = balance >= 1_000_000_000_000 ? 'trillion' 
+      : balance >= 1_000_000_000 ? 'billion' 
+      : balance <= 0 ? 'bankrupt' 
+      : 'normal';
+    
+    // Check if state has changed (for isFirstCheck)
+    const currentState = { month, day, missions, balanceTier };
+    const isFirstCheck = !this.lastEasterEggState 
+      || this.lastEasterEggState.month !== month 
+      || this.lastEasterEggState.day !== day
+      || this.lastEasterEggState.missions !== missions
+      || this.lastEasterEggState.balanceTier !== balanceTier;
+    
+    this.lastEasterEggState = currentState;
+    
+    const easterEggState: EasterEggState = {
+      gameMonth: month,
+      gameDay: day,
+      missionsCompleted: missions,
+      balance,
+      isFirstCheck,
+    };
+    
+    const triggered = this.newsSystem.checkEasterEggs(easterEggState);
+    triggered.forEach(item => {
+      this.addNewsItem(item.text, item.type as 'critical' | 'important' | 'market' | 'flavor');
+    });
+  }
+
+  /**
+   * Check if an asteroid is available (not mined and not blocked by competitors)
+   */
+  private isAsteroidAvailable(asteroidId: string): boolean {
+    return !this.gameState.data.minedAsteroids.includes(asteroidId) 
+      && !this.newsSystem.isAsteroidBlocked(asteroidId);
   }
 
   private initSearchableBodies(): void {
@@ -3066,6 +3772,9 @@ class Game {
     const deltaTime = currentTime - this.lastTime;
     this.lastTime = currentTime;
 
+    // Update ticker scroll (runs regardless of game state)
+    this.updateTickerScroll(currentTime);
+
     // Update solar system with time scale
     if (this.solarSystem) {
       const timeScale = this.gameState.data.timeScale;
@@ -3081,6 +3790,9 @@ class Game {
 
       // Update active missions
       this.updateMissions();
+      
+      // Generate periodic news items
+      this.updateNews();
     }
 
     requestAnimationFrame(this.gameLoop.bind(this));

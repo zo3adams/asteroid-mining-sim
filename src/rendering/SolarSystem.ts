@@ -889,6 +889,26 @@ export class SolarSystem {
   }
 
   /**
+   * Get the current orbital angle for an asteroid
+   * Returns angle in radians (0 to 2π)
+   */
+  public getAsteroidAngle(asteroidId: string): number | null {
+    const asteroid = this.asteroids.get(asteroidId);
+    if (!asteroid) return null;
+    return asteroid.userData.angle;
+  }
+
+  /**
+   * Get Earth's current orbital angle
+   * Returns angle in radians (0 to 2π)
+   */
+  public getEarthAngle(): number {
+    const earth = this.planets.get('Earth');
+    if (!earth) return 0;
+    return earth.userData.angle;
+  }
+
+  /**
    * Create a ship for a mission
    */
   public createMissionShip(missionId: string, targetOrbitAU: number): void {

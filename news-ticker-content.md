@@ -5,6 +5,7 @@ This document contains example news ticker messages for the game. The ticker sho
 ## Message Categories
 
 ### Critical Notifications (Red/Orange)
+Triggered by event
 **Game Events - High Priority**
 - "ALERT: Mission [Mission ID] to [Asteroid Name] under pirate attack!"
 - "FAILURE: Mission [Mission ID] aborted due to equipment malfunction"
@@ -13,6 +14,7 @@ This document contains example news ticker messages for the game. The ticker sho
 - "CONTRACT FAILED: [Contract Name] deadline missed - reputation penalty applied"
 
 ### Important Updates (Yellow)
+Triggered by event
 **Game Events - Medium Priority**
 - "SUCCESS: Mission [Mission ID] completed - [Resource Amount] delivered"
 - "BREAKING: ULA will now accept contracts from [Player Company Name]"
@@ -24,6 +26,7 @@ This document contains example news ticker messages for the game. The ticker sho
 - "DISCOUNT UNLOCKED: Blue Genesis repeat customer pricing now active"
 
 ### Market News (Blue)
+  Triggered by specific fluctuations in resource price, when a 10-20% change occurs one of these will trigger for the appropriate resource.
 **Economic Updates**
 - "Lithium prices surge 40% following Earth-side battery shortage"
 - "Platinum market crashes as competitor floods supply"
@@ -34,6 +37,7 @@ This document contains example news ticker messages for the game. The ticker sho
 - "Belt Brothers Salvage failed to deliver on ESA contract - spot prices rising"
 
 ### Competitor Actions (Blue)
+Trigger randomly every 5 minutes.  If action is a succesfu mine or outpost estalished, player is no longer abel to mine that asteroid.
 - "Rock Lobster Industries launches swarm to [Asteroid Name] - no permits filed"
 - "Solar System Quarry sets up permanent outpost at [Location]"
 - "Belt Brothers spotted near failed mission site at [Asteroid Name]"
@@ -41,6 +45,7 @@ This document contains example news ticker messages for the game. The ticker sho
 - "Reginald P. Stone testifies before Congress on mining safety regulations"
 
 ### Educational/Space News (Gray)
+Appears randomly in feed, no more than one per minute.
 **Real Astronomy Facts**
 - "FUN FACT: Asteroid 16 Psyche may contain $10 quintillion in metal"
 - "DID YOU KNOW: Main belt contains 1-2 million asteroids larger than 1km"
@@ -51,6 +56,7 @@ This document contains example news ticker messages for the game. The ticker sho
 - "SPACE: Communication with asteroid belt missions has 20+ minute delay"
 
 ### Humorous Flavor Text (Gray)
+Appears randomly in feed, no more than one per every 2 minute.
 **Irrelevant Space News**
 - "Mars colonists vote pineapple officially banned from space pizza"
 - "Lunar tourist complains about 'false advertising' in low gravity wedding photos"
@@ -111,6 +117,7 @@ Some messages should be generated procedurally based on game state:
 - Random events
 
 ## Easter Eggs & Special Messages
+Triggered by key in game events, like a date reached or player a status. Triggered on entry to state only.
 
 - **April 1st**: "Scientists confirm space is real, not elaborate prank"
 - **December 25th**: "NORAD tracks Santa's sleigh passing through asteroid belt"

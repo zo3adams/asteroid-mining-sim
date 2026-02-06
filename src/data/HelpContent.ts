@@ -45,6 +45,10 @@ export const GAMEPLAY_TIPS: Tip[] = [
     id: 5,
     text: 'Game can run at realtime or as fast as 1 week per second, most players use real time to plan out missions, and sped up while waiting for them to complete.',
   },
+  {
+    id: 6,
+    text: "Contract deadlines matter, payout will be reduced if delivery is late so be sure to choose a target you can fly out to and back from in time!",
+  },
 ];
 
 export const REFERENCES: Reference[] = [
