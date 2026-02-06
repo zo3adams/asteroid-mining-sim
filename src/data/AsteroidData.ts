@@ -1,9 +1,13 @@
 /**
  * NASA JPL Small-Body Database API Client
  * Fetches real asteroid data and estimates resources
+ * 
+ * NOTE: Due to CORS restrictions, asteroid data is bundled as static JSON.
+ * The API fetching is only used as a fallback for dynamic lookups.
  */
 
 import { ResourceType } from '../utils/Constants';
+import staticAsteroidData from './asteroid-data.json';
 
 export interface AsteroidInfo {
   id: string;
@@ -402,34 +406,78 @@ export class AsteroidDataFetcher {
   }
 
   /**
-   * Load multiple asteroids with caching
+   * Load multiple asteroids - uses bundled static data to avoid CORS issues
    */
   public static async loadAsteroids(
+    designations: string[],
+    onProgress?: (current: number, total: number) => void
+  ): Promise<AsteroidInfo[]> {
+    const results: AsteroidInfo[] = [];
+    
+    // Create a map of static data for quick lookup
+    const staticDataMap = new Map<string, AsteroidInfo>();
+    for (const asteroid of staticAsteroidData as AsteroidInfo[]) {
+      staticDataMap.set(asteroid.id, asteroid);
+    }
+    
+    // Load from static data first (no CORS issues)
+    for (let i = 0; i < designations.length; i++) {
+      const des = designations[i];
+      if (onProgress) onProgress(i + 1, designations.length);
+      
+      const staticAsteroid = staticDataMap.get(des);
+      if (staticAsteroid) {
+        results.push(staticAsteroid);
+      }
+    }
+    
+    console.log(`Loaded ${results.length} asteroids from bundled data`);
+    return results;
+  }
+
+  /**
+   * Load asteroids with API fallback (for dynamic lookups like search)
+   * This may fail due to CORS on production servers
+   */
+  public static async loadAsteroidsWithApiFallback(
     designations: string[],
     onProgress?: (current: number, total: number) => void
   ): Promise<AsteroidInfo[]> {
     const cache = this.loadCache();
     const results: AsteroidInfo[] = [];
     const toFetch: string[] = [];
+    
+    // Create a map of static data for quick lookup
+    const staticDataMap = new Map<string, AsteroidInfo>();
+    for (const asteroid of staticAsteroidData as AsteroidInfo[]) {
+      staticDataMap.set(asteroid.id, asteroid);
+    }
 
-    // Check cache first
+    // Check static data and cache first
     for (const des of designations) {
-      if (cache[des]) {
+      const staticAsteroid = staticDataMap.get(des);
+      if (staticAsteroid) {
+        results.push(staticAsteroid);
+      } else if (cache[des]) {
         results.push(cache[des]);
       } else {
         toFetch.push(des);
       }
     }
 
-    // Fetch missing asteroids
+    // Fetch missing asteroids from API (may fail due to CORS)
     for (let i = 0; i < toFetch.length; i++) {
       const des = toFetch[i];
       if (onProgress) onProgress(i + 1, toFetch.length);
 
-      const asteroid = await this.fetchAsteroid(des);
-      if (asteroid) {
-        results.push(asteroid);
-        cache[des] = asteroid;
+      try {
+        const asteroid = await this.fetchAsteroid(des);
+        if (asteroid) {
+          results.push(asteroid);
+          cache[des] = asteroid;
+        }
+      } catch (error) {
+        console.warn(`Could not fetch asteroid ${des} (CORS?):`, error);
       }
 
       // Rate limiting: wait 100ms between requests

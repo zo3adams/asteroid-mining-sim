@@ -342,7 +342,7 @@ class Game {
   }
 
   private async loadAsteroids(): Promise<void> {
-    console.log('Loading asteroid data from NASA JPL...');
+    console.log('Loading asteroid data...');
 
     const asteroidList = AsteroidDataFetcher.getDefaultAsteroids();
     const progressBar = document.getElementById('loading-progress-bar');
