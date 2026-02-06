@@ -5,6 +5,7 @@
 import { SolarSystem } from './rendering/SolarSystem';
 import { GameState, FlightLogEntry } from './core/GameState';
 import { AsteroidDataFetcher, AsteroidInfo, getTypesForResource, estimateAsteroidResources, getPrimaryResourcesForType, calculateDistanceFromEarth, calculateAsteroidMatches } from './data/AsteroidData';
+import staticAsteroidData from './data/asteroid-data.json';
 import { formatCurrency, formatDistance, formatMass, formatDiameter } from './utils/Formatters';
 import { getAsteroidWikipediaUrl, getPlanetWikipediaUrl, getSunWikipediaUrl } from './data/WikipediaLinks';
 import { TIME_SCALE_NAMES, PLANET_DIAMETERS, MOON_DIAMETERS } from './utils/Constants';
@@ -3564,10 +3565,11 @@ class Game {
     // Add ISS
     this.searchableBodies.push({ name: 'ISS', type: 'satellite' });
 
-    // Add all asteroids
-    this.asteroidData.forEach((asteroid, id) => {
-      this.searchableBodies.push({ name: asteroid.name, type: 'asteroid', id });
-    });
+    // Add ALL asteroids from static data (not just rendered ones)
+    // This allows users to search and add asteroids that aren't initially rendered
+    for (const asteroid of staticAsteroidData as AsteroidInfo[]) {
+      this.searchableBodies.push({ name: asteroid.name, type: 'asteroid', id: asteroid.id });
+    }
   }
 
   private setupSearch(): void {
@@ -3697,6 +3699,28 @@ class Game {
     const searchInput = document.getElementById('body-search') as HTMLInputElement;
     if (searchInput) searchInput.value = '';
     this.hideSearchSuggestions();
+
+    // For asteroids, check if it's already rendered - if not, add it from static data
+    if (type === 'asteroid' && id && !this.asteroidData.has(id)) {
+      // Find in static data
+      const asteroid = (staticAsteroidData as AsteroidInfo[]).find(a => a.id === id);
+      if (asteroid) {
+        // Add to our data store
+        this.asteroidData.set(asteroid.id, asteroid);
+        
+        // Add to solar system scene
+        if (this.solarSystem) {
+          const size = asteroid.diameter ? Math.max(0.5, asteroid.diameter / 20) : 1;
+          const asteroidType = (asteroid.taxonomicClass as 'C' | 'S' | 'M') || 'S';
+          this.solarSystem.addAsteroid(asteroid.id, asteroid.name, asteroid.semiMajorAxis, size, asteroidType);
+        }
+        
+        // Update asteroid count display
+        this.updateAsteroidCount();
+        
+        this.addNewsItem(`Found and added asteroid: ${asteroid.name}`, 'market');
+      }
+    }
 
     // Focus and select the object
     if (this.solarSystem) {

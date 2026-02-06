@@ -403,9 +403,7 @@ export class SolarSystem {
     canvas.width = 1280;
     canvas.height = 320;
 
-    // Draw text
-    context.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw text only (no background)
     context.font = 'Bold 100px Courier New';
     context.fillStyle = color;
     context.textAlign = 'center';
@@ -421,11 +419,12 @@ export class SolarSystem {
   }
 
   /**
-   * Add a label to an object
+   * Add a label to an object (hidden by default, shown on hover)
    */
   private addLabel(key: string, parentMesh: THREE.Mesh): void {
     const label = this.createTextSprite(key, '#00ffff');
     label.position.set(0, parentMesh.userData.size * 2 + 6, 0); // Increased offset for larger labels
+    label.visible = false; // Hidden by default, shown on hover
     parentMesh.add(label);
     this.labels.set(key, label);
   }
@@ -514,6 +513,12 @@ export class SolarSystem {
 
     // If hover changed, update outline and dispatch event
     if (newHover !== this.hoveredObject) {
+      // Hide label for old hovered object
+      if (this.hoveredObject) {
+        const oldLabel = this.labels.get(this.hoveredObject.userData.name || this.hoveredObject.userData.id);
+        if (oldLabel) oldLabel.visible = false;
+      }
+      
       // Remove old outline
       if (this.hoveredObject && this.hoveredObject.material instanceof THREE.MeshStandardMaterial) {
         this.hoveredObject.material.emissiveIntensity = this.hoveredObject.userData.type === 'asteroid' ? 0.4 : 0.3;
@@ -523,6 +528,12 @@ export class SolarSystem {
       }
 
       this.hoveredObject = newHover;
+
+      // Show label for new hovered object
+      if (this.hoveredObject) {
+        const newLabel = this.labels.get(this.hoveredObject.userData.name || this.hoveredObject.userData.id);
+        if (newLabel) newLabel.visible = true;
+      }
 
       // Add new outline (green glow)
       if (this.hoveredObject && this.hoveredObject.material instanceof THREE.MeshStandardMaterial) {

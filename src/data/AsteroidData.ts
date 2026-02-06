@@ -361,48 +361,24 @@ export class AsteroidDataFetcher {
   }
 
   /**
-   * Get a curated list of interesting near-Earth asteroids
+   * Get list of asteroid IDs for initial game load
+   * Returns first 36 asteroids for performance - more are loaded as player progresses
+   * Full dataset of ~1000 asteroids is available in staticAsteroidData
    */
   public static getDefaultAsteroids(): string[] {
-    return [
-      // Famous NEAs
-      '433', // Eros - first NEA visited by spacecraft
-      '1036', // Ganymed - largest NEA
-      '1566', // Icarus - very eccentric orbit
-      '1620', // Geographos - elongated shape
-      '1862', // Apollo - prototype Apollo asteroid
-      '1866', // Sisyphus - large Apollo
-      '2060', // Chiron - centaur, comet-like
-      '2062', // Aten - prototype Aten asteroid
-      '3200', // Phaethon - source of Geminids
-      '4015', // Wilson-Harrington - extinct comet
-      '4179', // Toutatis - tumbling motion
-      '4769', // Castalia - contact binary
-      '6489', // Golevka - radar mapped
-      '25143', // Itokawa - Hayabusa target
-      '99942', // Apophis - famous close approach
-      '101955', // Bennu - OSIRIS-REx target
-      '162173', // Ryugu - Hayabusa2 target
-      '433953', // 2008 TC3 - impacted Earth
-      // Additional interesting NEAs
-      '1221', // Amor - prototype Amor asteroid
-      '1580', // Betulia - C-type NEA
-      '1627', // Ivar - Amor asteroid
-      '1685', // Toro - resonant orbit
-      '1864', // Daedalus - large Apollo
-      '1981', // Midas - gold-named asteroid
-      '2063', // Bacchus - small NEA
-      '2100', // Ra-Shalom - Aten asteroid
-      '2201', // Oljato - unusual orbit
-      '2340', // Hathor - Aten asteroid
-      '3103', // Eger - E-type NEA (rare)
-      '3361', // Orpheus - Apollo asteroid
-      '3554', // Amun - M-type NEA (metal-rich)
-      '4183', // Cuno - large Apollo
-      '4660', // Nereus - mission target candidate
-      '5011', // Ptah - small NEA
-      '7341', // 1991 VK - binary asteroid
-    ];
+    // Only load first 36 for initial rendering performance
+    // Additional asteroids will be loaded as player mines existing ones
+    const INITIAL_ASTEROID_COUNT = 36;
+    return (staticAsteroidData as AsteroidInfo[])
+      .slice(0, INITIAL_ASTEROID_COUNT)
+      .map(a => a.id);
+  }
+
+  /**
+   * Get total count of available asteroids in the dataset
+   */
+  public static getTotalAsteroidCount(): number {
+    return (staticAsteroidData as AsteroidInfo[]).length;
   }
 
   /**
