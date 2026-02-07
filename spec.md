@@ -90,9 +90,9 @@ The game calculates a **synodic period** (time between closest approaches) and u
 #### Landscape Mode (Desktop/Laptop/Tablet)
 Standard layout with side panels:
 - **Top bar**: Game title, date, speed controls, save URL button
-- **Left panel** (320px): Company status, active missions, tech tree, assets, storage, help, controls, search
+- **Left panel** (320px): Company status, active missions, tech tree, assets, storage, help, controls
 - **Center**: 3D solar system canvas (full height)
-- **Right panel** (320px): Target info, quick stats, hover info, market prices, flight log
+- **Right panel** (320px): Search, target info, quick stats, hover info, market prices, flight log
 - **Bottom**: News ticker (70px)
 
 #### Portrait Mode (Mobile Phones < 768px)
@@ -100,17 +100,14 @@ Vertical scrolling layout optimized for touch:
 1. **Top bar** (fixed): Game title, date, speed controls (compact)
 2. **Solar system canvas**: Full width, square aspect ratio (max 50% viewport height)
 3. **News ticker**: Full width below canvas
-4. **Left panel sections** (full width, scrollable):
+4. **Vertical Components** (full width, in this order):
+   - Help
+   - Search box
    - Company Status
    - Active Missions + Plan Mission button
    - Tech Tree (Level 2+)
    - Owned Assets (Level 2+)
    - Storage (Level 3+)
-   - Search box
-   - Help (always at bottom)
-5. **Right panel sections** (full width):
-   - Target Information
-   - Quick Stats
    - Market Prices
    - Flight Log
 
@@ -118,9 +115,19 @@ Vertical scrolling layout optimized for touch:
 - Modals expand to 95% width or full screen
 - Buttons are full width for easy touch
 - Contract/target/vendor cards stack vertically
-- Hover info section hidden (not useful with touch)
-- Controls section hidden (touch gestures are intuitive)
+- Hover info, Quick Stats, Target Info, Controls sections hidden (not useful with touch)
 - Canvas pixel ratio capped at 2x for performance
+- Loading screen content positioned higher for easier button access
+- Width constrained to viewport (`max-width: 100vw`, `overflow-x: hidden` on html/body/#app)
+
+**Panel Section IDs** (for CSS targeting and testing):
+- Left panel: `#company-section`, `#missions-section`, `#tech-tree-section`, `#assets-section`, `#storage-section`, `#help-section`, `#controls-section`
+- Right panel: `#search-section`, `#target-section`, `#quickstats-section`, `#hover-section`, `#market-section`, `#flight-log-section`
+
+**Mobile CSS Implementation:**
+- Panels use `display: contents` to flatten hierarchy, making sections direct flex children of `#app`
+- Sections use CSS `order` property for sequencing (Help=10 through FlightLog=18)
+- Hidden sections use `display: none !important`
 
 ### Left Panel (Company & Controls)
 - **Company Status**: Balance, Reputation, Missions completed
@@ -128,15 +135,15 @@ Vertical scrolling layout optimized for touch:
   - Click mission to zoom to ship
   - "Plan Mission" button at bottom (always visible)
 - **Controls**: Mouse/keyboard binding reference
-- **Search**: Body search box with autocomplete suggestions (max 5), keyboard navigation (↑/↓/Enter/Escape), zooms and selects target on selection
 
 ### Right Panel (Target Information)
+- **Search**: Body search box with autocomplete suggestions (max 5), keyboard navigation (↑/↓/Enter/Escape), zooms and selects target on selection
 - **Target Information**: Details for selected object including:
   - Name, type, distance from Earth
   - Diameter (auto-scaled: km for large bodies, m for small asteroids)
   - Mass (estimated for asteroids)
   - Orbital parameters (eccentricity, inclination)
-  - Wikipedia link
+  - Wikipedia link, JPL Small-Body Database link
 - **Quick Stats**: Asteroid count
 - **Hover Info**: Preview details on mouse hover (includes diameter and mass)
 
@@ -332,3 +339,27 @@ Benefits: Significantly lower operating costs, no maintenance fees.
 - Encodes: bank balance, missions completed, tech tree progress, active contracts, fleet status
 - Player can copy URL anytime to save progress
 - No account/server required for MVP
+
+---
+
+## Testing
+
+### Unit Tests (Vitest)
+Test files located in `src/__tests__/`:
+
+| Test File | Coverage |
+|-----------|----------|
+| `progression.test.ts` | Level progression system, thresholds, feature unlocks |
+| `news-system.test.ts` | News ticker messages, formatting, event triggers |
+| `asteroid-visibility.test.ts` | Asteroid filtering by level, distance calculations |
+| `asteroid-match.test.ts` | Asteroid search/matching for contracts |
+| `mobile-layout.test.ts` | Mobile portrait layout ordering and visibility |
+
+### Mobile Layout Tests
+Verifies the responsive layout configuration:
+- **Panel Section IDs**: All 13 required IDs exist in HTML
+- **CSS Order Values**: Help(10) → Search(11) → Company(12) → Missions(13) → TechTree(14) → Assets(15) → Storage(16) → Market(17) → FlightLog(18)
+- **Hidden Sections**: Controls, Hover, Target, QuickStats have `display: none`
+- **Layout Structure**: Panels use `display: contents` for hierarchy flattening
+
+Run tests: `npm test`

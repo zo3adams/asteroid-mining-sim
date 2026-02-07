@@ -93,12 +93,13 @@ export class TextureManager {
    * Load asteroid texture by type
    */
   public async loadAsteroidTexture(type: 'C' | 'S' | 'M'): Promise<THREE.Texture | null> {
-    const typeMap = {
+    const typeMap: Record<string, string> = {
       C: 'asteroid-carbon.jpg',
       S: 'asteroid-grey.jpg',
       M: 'asteroid-metal.jpg',
     };
-    const filename = typeMap[type];
+    // Fallback to grey texture for unknown/undefined types
+    const filename = typeMap[type] || 'asteroid-grey.jpg';
     const url = `/textures/asteroids/${filename}`;
     return this.loadTexture(url);
   }

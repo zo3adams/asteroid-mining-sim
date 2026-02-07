@@ -225,7 +225,7 @@ export interface PhaseInfo {
 export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   [MissionPhase.CONTRACT_SIGNED]: {
     name: 'Contract Signed',
-    image: '/assets/images/mission_phase_01_contract_signed.png',
+    image: '/images/mission_phase_01_contract_signed.png',
     description: "You've secured this contract. Crew and launch vehicle readiness are pending.",
     isTerminal: false,
     isSuccess: false,
@@ -233,7 +233,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.LAUNCH]: {
     name: 'Launch',
-    image: '/assets/images/mission_phase_02_launch.png',
+    image: '/images/mission_phase_02_launch.png',
     description: 'Wet dress rehearsal is complete. Vehicle is on the pad and ready to launch in 5...4...3...2...',
     isTerminal: false,
     isSuccess: false,
@@ -244,7 +244,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.LAUNCH_ANOMALY]: {
     name: 'Launch Anomaly',
-    image: '/assets/images/mission_phase_03_launch_anomoly.png',
+    image: '/images/mission_phase_03_launch_anomoly.png',
     description: "Launch abort - mission is scrubbed and the crew's lives depend on the launch abort system.",
     isTerminal: true,
     isSuccess: false,
@@ -252,7 +252,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.OUTBOUND]: {
     name: 'Outbound',
-    image: '/assets/images/mission_phase_04_outbound.png',
+    image: '/images/mission_phase_04_outbound.png',
     description: 'Crew and mining rig are outbound to target and preparing to drill in zero-G.',
     isTerminal: false,
     isSuccess: false,
@@ -263,7 +263,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.IN_FLIGHT_ANOMALY]: {
     name: 'In Flight Anomaly',
-    image: '/assets/images/vehicle_anomoly.png',
+    image: '/images/vehicle_anomoly.png',
     description: 'An anomaly has occurred during flight - crew and all hardware have been lost.',
     isTerminal: true,
     isSuccess: false,
@@ -271,7 +271,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.DRILLING]: {
     name: 'Drilling',
-    image: '/assets/images/mission_phase_06_drilling.png',
+    image: '/images/mission_phase_06_drilling.png',
     description: 'Crew is assessing and preparing to extract resources.',
     isTerminal: false,
     isSuccess: false,
@@ -282,7 +282,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.EXPLOSION_AT_DRILL_SITE]: {
     name: 'Explosion At Drill Site',
-    image: '/assets/images/mission_phase_07_explosion_at_drill_site.png',
+    image: '/images/mission_phase_07_explosion_at_drill_site.png',
     description: 'An anomaly has occurred while drilling - we are trying to make contact with the crew.',
     isTerminal: true,
     isSuccess: false,
@@ -290,7 +290,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.INBOUND]: {
     name: 'Inbound',
-    image: '/assets/images/mission_phase_08_in_bound.png',
+    image: '/images/mission_phase_08_in_bound.png',
     description: 'Crew is returning with payload.',
     isTerminal: false,
     isSuccess: false,
@@ -301,7 +301,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.DELIVERING_PAYLOAD]: {
     name: 'Delivering Payload',
-    image: '/assets/images/mission_phase_09_delivering_payload.png',
+    image: '/images/mission_phase_09_delivering_payload.png',
     description: 'Crew has returned and is delivering payload to client.',
     isTerminal: false,
     isSuccess: false,
@@ -309,7 +309,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.MISSION_SUCCESS]: {
     name: 'Mission Success',
-    image: '/assets/images/mission_phase_10_mission_success.png',
+    image: '/images/mission_phase_10_mission_success.png',
     description: 'Mission Success - pay day!',
     isTerminal: true,
     isSuccess: true,
@@ -318,7 +318,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   // Pirate encounter phases
   [MissionPhase.PIRATE_ATTACK_OUTBOUND]: {
     name: 'Pirate Attack!',
-    image: '/assets/images/mission_phase_pirate_attack.png',
+    image: '/images/mission_phase_pirate_attack.png',
     description: 'Pirates have intercepted our outbound vessel! Prepare for combat!',
     isTerminal: false,
     isSuccess: false,
@@ -326,7 +326,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.PIRATE_ATTACK_INBOUND]: {
     name: 'Pirate Ambush!',
-    image: '/assets/images/mission_phase_pirate_attack.png',
+    image: '/images/mission_phase_pirate_attack.png',
     description: 'Pirates are attempting to board and seize the payload!',
     isTerminal: false,
     isSuccess: false,
@@ -334,7 +334,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.PIRATES_DEFEATED]: {
     name: 'Pirates Defeated',
-    image: '/assets/images/mission_phase_pirates_defeated.png',
+    image: '/images/mission_phase_pirates_defeated.png',
     description: 'Security forces repelled the pirate attack! Mission continues.',
     isTerminal: false, // Not terminal - mission continues
     isSuccess: false,
@@ -342,7 +342,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.PIRATES_WON]: {
     name: 'Pirates Won',
-    image: '/assets/images/mission_phase_pirates_won.png',
+    image: '/images/mission_phase_pirates_won.png',
     description: 'The pirates have overwhelmed our defenses. All hands lost.',
     isTerminal: true,
     isSuccess: false,
@@ -350,7 +350,7 @@ export const PHASE_INFO: Record<MissionPhase, PhaseInfo> = {
   },
   [MissionPhase.PAYLOAD_SEIZED]: {
     name: 'Payload Seized',
-    image: '/assets/images/mission_phase_payload_seized.png',
+    image: '/images/mission_phase_payload_seized.png',
     description: 'We fought them off but they escaped with the cargo. Crew is safe.',
     isTerminal: true,
     isSuccess: false, // Partial failure - no payout but crew survives

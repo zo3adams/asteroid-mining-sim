@@ -2479,8 +2479,16 @@
            Applies to phones in portrait orientation
            ============================================ */
         @media screen and (max-width: 768px) and (orientation: portrait) {
+            /* Prevent horizontal overflow on mobile */
+            html, body {
+                max-width: 100vw;
+                overflow-x: hidden;
+            }
+
             /* App becomes a vertical scroll container */
             #app {
+                width: 100%;
+                max-width: 100vw;
                 height: auto;
                 min-height: 100vh;
                 overflow-y: auto;
@@ -2532,75 +2540,76 @@
             #news-ticker {
                 position: relative !important;
                 width: 100%;
+                max-width: 100vw;
                 height: 50px;
                 flex-shrink: 0;
                 order: 2;
+                box-sizing: border-box;
             }
 
-            /* Left panel becomes full-width vertical section */
-            #left-panel {
-                position: relative !important;
-                top: auto !important;
-                left: auto !important;
-                width: 100% !important;
-                bottom: auto !important;
-                border-right: none;
-                border-bottom: 1px solid var(--stroke);
-                padding: 16px;
-                order: 3;
-                box-shadow: none;
-            }
-
-            #left-panel::before {
-                display: none;
-            }
-
-            #left-panel::after {
-                display: none;
-            }
-
-            /* Right panel becomes full-width vertical section below left */
+            /* Both panels become transparent containers, children flow directly */
+            #left-panel,
             #right-panel {
                 position: relative !important;
                 top: auto !important;
+                left: auto !important;
                 right: auto !important;
                 width: 100% !important;
                 bottom: auto !important;
-                border-left: none;
-                border-bottom: 1px solid var(--stroke);
-                padding: 16px;
-                order: 4;
+                border: none;
+                padding: 0;
                 box-shadow: none;
+                display: contents; /* Children become direct flex children of #app */
             }
 
-            #right-panel::before {
-                display: none;
-            }
-
+            #left-panel::before,
+            #left-panel::after,
+            #right-panel::before,
             #right-panel::after {
                 display: none;
             }
 
-            /* Reorder sections within left panel for mobile */
-            #left-panel {
-                display: flex;
-                flex-direction: column;
+            /* All panel sections get full width and specific order */
+            .panel-section {
+                width: 100% !important;
+                max-width: 100vw !important;
+                padding: 12px 16px !important;
+                margin: 0 !important;
+                border-bottom: 1px solid var(--stroke);
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)), var(--glass);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                box-sizing: border-box;
             }
 
-            #left-panel > .panel-section:nth-child(1) { order: 1; } /* Company Status */
-            #left-panel > .panel-section:nth-child(2) { order: 2; } /* Active Missions */
-            #left-panel > #tech-tree-section { order: 3; }
-            #left-panel > #assets-section { order: 4; }
-            #left-panel > #storage-section { order: 5; }
-            #left-panel > #help-section { order: 10; } /* Help at bottom */
-            #left-panel > .panel-section:last-child { order: 6; } /* Controls */
-            #left-panel > .panel-section:has(#body-search) { order: 7; } /* Search */
+            /* Specific order per spec.md:
+               1. Help
+               2. Search box
+               3. Company Status
+               4. Active Missions
+               5. Tech Tree
+               6. Owned Assets
+               7. Storage
+               8. Market Prices
+               9. Flight Log
+            */
+            #help-section { order: 10; }
+            #search-section { order: 11; }
+            #company-section { order: 12; }
+            #missions-section { order: 13; }
+            #tech-tree-section { order: 14; }
+            #assets-section { order: 15; }
+            #storage-section { order: 16; }
+            #market-section { order: 17; }
+            #flight-log-section { order: 18; }
+            
+            /* Hide sections not needed on mobile */
+            #controls-section { display: none !important; }
+            #hover-section { display: none !important; }
+            #target-section { display: none !important; }
+            #quickstats-section { display: none !important; }
 
             /* Panel sections more compact on mobile */
-            .panel-section {
-                margin-bottom: 16px;
-            }
-
             .panel-section h3 {
                 font-size: 12px;
                 margin-bottom: 8px;
@@ -2646,22 +2655,48 @@
                 width: 100% !important;
             }
 
-            /* Loading screen adjustments */
+            /* Loading screen adjustments - center content higher on screen */
+            .loading-overlay {
+                justify-content: flex-start !important;
+                padding-top: 15vh !important;
+            }
+
             .loading-content-box {
                 width: 90vw !important;
                 padding: 20px !important;
+                max-height: 70vh;
+                overflow-y: auto;
             }
 
             .loading-title {
-                font-size: 24px !important;
+                font-size: 20px !important;
+                margin-bottom: 12px !important;
             }
 
             .loading-level {
                 font-size: 14px !important;
+                margin-bottom: 10px !important;
             }
 
             .loading-description {
                 font-size: 12px !important;
+                margin-bottom: 20px !important;
+                line-height: 1.5 !important;
+            }
+
+            .loading-progress {
+                width: 80% !important;
+                margin-bottom: 8px !important;
+            }
+
+            .loading-status {
+                font-size: 11px !important;
+            }
+
+            #launch-btn {
+                margin-top: 15px !important;
+                padding: 14px 40px !important;
+                font-size: 1em !important;
             }
 
             /* Help modal full screen on mobile */
@@ -2710,16 +2745,6 @@
             /* Search suggestions dropdown */
             #search-suggestions {
                 max-height: 200px;
-            }
-
-            /* Hide hover info on mobile - not useful with touch */
-            #right-panel .panel-section:has(#hover-info) {
-                display: none;
-            }
-
-            /* Hide controls section on mobile - touch is intuitive */
-            #left-panel .panel-section:has(.label:first-child) {
-                display: none;
             }
         }
 
@@ -2788,7 +2813,7 @@
         </div>
 
         <div class="hud" id="left-panel">
-            <div class="panel-section">
+            <div class="panel-section" id="company-section">
                 <h3>COMPANY STATUS</h3>
                 <div class="stat-row">
                     <span class="label">Level:</span>
@@ -2808,7 +2833,7 @@
                 </div>
             </div>
 
-            <div class="panel-section">
+            <div class="panel-section" id="missions-section">
                 <h3>ACTIVE MISSIONS</h3>
                 <p id="active-missions-list" style="color: #888;">No active missions</p>
                 <button id="plan-mission-btn" class="btn">Plan Mission</button>
@@ -2861,37 +2886,37 @@
                 </div>
             </div>
 
-            <div class="panel-section">
+            <div class="panel-section" id="controls-section">
                 <h3>CONTROLS</h3>
                 <p><span class="label">Left Click + Drag:</span> Rotate</p>
                 <p><span class="label">Right Click + Drag:</span> Pan</p>
                 <p><span class="label">Scroll:</span> Zoom</p>
                 <p><span class="label">Click Object:</span> Select</p>
             </div>
+        </div>
 
-            <div class="panel-section">
+        <div class="hud" id="right-panel">
+            <div class="panel-section" id="search-section">
                 <h3>SEARCH</h3>
                 <div class="search-container">
                     <input type="text" id="body-search" placeholder="Search bodies..." autocomplete="off">
                     <div id="search-suggestions"></div>
                 </div>
             </div>
-        </div>
 
-        <div class="hud" id="right-panel">
-            <div class="panel-section">
+            <div class="panel-section" id="target-section">
                 <h3>TARGET INFORMATION</h3>
                 <div id="target-info">
                     <p style="color: #888;">Select an asteroid to view details</p>
                 </div>
             </div>
 
-            <div class="panel-section">
+            <div class="panel-section" id="quickstats-section">
                 <h3>QUICK STATS</h3>
                 <p id="asteroid-count">Loading asteroids...</p>
             </div>
 
-            <div class="panel-section">
+            <div class="panel-section" id="hover-section">
                 <h3>HOVER INFO</h3>
                 <div id="hover-info">
                     <p style="color: #888;">Hover over objects to see details</p>
