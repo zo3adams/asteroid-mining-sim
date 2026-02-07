@@ -2473,6 +2473,265 @@
             mix-blend-mode: overlay;
             opacity: 0.15;
         }
+
+        /* ============================================
+           MOBILE PORTRAIT LAYOUT
+           Applies to phones in portrait orientation
+           ============================================ */
+        @media screen and (max-width: 768px) and (orientation: portrait) {
+            /* App becomes a vertical scroll container */
+            #app {
+                height: auto;
+                min-height: 100vh;
+                overflow-y: auto;
+                overflow-x: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+
+            /* Top bar stays fixed at top */
+            #top-bar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+                height: 45px;
+                padding: 0 12px;
+                flex-wrap: wrap;
+            }
+
+            #game-title {
+                font-size: 14px;
+            }
+
+            #time-control {
+                flex-wrap: wrap;
+                gap: 5px !important;
+            }
+
+            #time-slider {
+                width: 80px !important;
+            }
+
+            #save-url-btn {
+                display: none; /* Hide on mobile - can restore if needed */
+            }
+
+            /* Canvas container - square aspect ratio for solar system */
+            #canvas {
+                position: relative !important;
+                width: 100vw !important;
+                height: 100vw !important; /* Square */
+                max-height: 50vh;
+                margin-top: 45px; /* Below fixed top bar */
+                flex-shrink: 0;
+            }
+
+            /* News ticker below canvas */
+            #news-ticker {
+                position: relative !important;
+                width: 100%;
+                height: 50px;
+                flex-shrink: 0;
+                order: 2;
+            }
+
+            /* Left panel becomes full-width vertical section */
+            #left-panel {
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                width: 100% !important;
+                bottom: auto !important;
+                border-right: none;
+                border-bottom: 1px solid var(--stroke);
+                padding: 16px;
+                order: 3;
+                box-shadow: none;
+            }
+
+            #left-panel::before {
+                display: none;
+            }
+
+            #left-panel::after {
+                display: none;
+            }
+
+            /* Right panel becomes full-width vertical section below left */
+            #right-panel {
+                position: relative !important;
+                top: auto !important;
+                right: auto !important;
+                width: 100% !important;
+                bottom: auto !important;
+                border-left: none;
+                border-bottom: 1px solid var(--stroke);
+                padding: 16px;
+                order: 4;
+                box-shadow: none;
+            }
+
+            #right-panel::before {
+                display: none;
+            }
+
+            #right-panel::after {
+                display: none;
+            }
+
+            /* Reorder sections within left panel for mobile */
+            #left-panel {
+                display: flex;
+                flex-direction: column;
+            }
+
+            #left-panel > .panel-section:nth-child(1) { order: 1; } /* Company Status */
+            #left-panel > .panel-section:nth-child(2) { order: 2; } /* Active Missions */
+            #left-panel > #tech-tree-section { order: 3; }
+            #left-panel > #assets-section { order: 4; }
+            #left-panel > #storage-section { order: 5; }
+            #left-panel > #help-section { order: 10; } /* Help at bottom */
+            #left-panel > .panel-section:last-child { order: 6; } /* Controls */
+            #left-panel > .panel-section:has(#body-search) { order: 7; } /* Search */
+
+            /* Panel sections more compact on mobile */
+            .panel-section {
+                margin-bottom: 16px;
+            }
+
+            .panel-section h3 {
+                font-size: 12px;
+                margin-bottom: 8px;
+            }
+
+            /* Buttons full width on mobile */
+            .btn {
+                width: 100%;
+                padding: 12px;
+            }
+
+            /* Modal adjustments for mobile */
+            .modal-content {
+                width: 95vw !important;
+                max-width: none !important;
+                max-height: 90vh !important;
+                margin: 5vh auto;
+                padding: 16px !important;
+            }
+
+            .modal-content h2 {
+                font-size: 18px;
+            }
+
+            .modal-content h3 {
+                font-size: 14px;
+            }
+
+            /* Contract cards stack vertically */
+            .contract-option {
+                width: 100% !important;
+                margin-bottom: 12px;
+            }
+
+            /* Target selection grid single column */
+            #target-options {
+                grid-template-columns: 1fr !important;
+            }
+
+            /* Vendor/Crew options single column */
+            .provider-option,
+            .crew-option {
+                width: 100% !important;
+            }
+
+            /* Loading screen adjustments */
+            .loading-content-box {
+                width: 90vw !important;
+                padding: 20px !important;
+            }
+
+            .loading-title {
+                font-size: 24px !important;
+            }
+
+            .loading-level {
+                font-size: 14px !important;
+            }
+
+            .loading-description {
+                font-size: 12px !important;
+            }
+
+            /* Help modal full screen on mobile */
+            #help-modal .modal-content {
+                width: 100vw !important;
+                height: 100vh !important;
+                max-height: 100vh !important;
+                margin: 0;
+                border-radius: 0;
+            }
+
+            /* Level up modal adjustments */
+            .level-up-content {
+                width: 90vw !important;
+                padding: 20px !important;
+            }
+
+            /* Tech tree modal full screen */
+            #tech-tree-modal .modal-content {
+                width: 100vw !important;
+                height: 100vh !important;
+                max-height: 100vh !important;
+                margin: 0;
+                border-radius: 0;
+                overflow-y: auto;
+            }
+
+            /* Phase modal adjustments */
+            .phase-modal-content {
+                width: 95vw !important;
+                max-width: none !important;
+                padding: 16px !important;
+            }
+
+            .phase-modal-image {
+                width: 100% !important;
+                height: 150px !important;
+            }
+
+            /* Storage modal adjustments */
+            .storage-modal-content {
+                width: 95vw !important;
+                max-width: none !important;
+            }
+
+            /* Search suggestions dropdown */
+            #search-suggestions {
+                max-height: 200px;
+            }
+
+            /* Hide hover info on mobile - not useful with touch */
+            #right-panel .panel-section:has(#hover-info) {
+                display: none;
+            }
+
+            /* Hide controls section on mobile - touch is intuitive */
+            #left-panel .panel-section:has(.label:first-child) {
+                display: none;
+            }
+        }
+
+        /* Tablet portrait - wider but still vertical */
+        @media screen and (min-width: 769px) and (max-width: 1024px) and (orientation: portrait) {
+            #left-panel {
+                width: 280px;
+            }
+            #right-panel {
+                width: 280px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2483,7 +2742,7 @@
         <!-- Loading Screen -->
         <div id="loading" class="loading-overlay">
             <div class="loading-content-box">
-                <div class="loading-title">ASTEROID MINER</div>
+                <div class="loading-title">ASTEROID MINING SIM</div>
                 <div class="loading-level" id="loading-level">Level 1/5: <a href="https://en.wikipedia.org/wiki/Apollo_asteroid" target="_blank" style="color: var(--hud-cyan);">Apollo</a> and <a href="https://en.wikipedia.org/wiki/Amor_asteroid" target="_blank" style="color: var(--hud-cyan);">Amor</a></div>
                 <div class="loading-description" id="loading-description">
                     Still using chemical propellant and launching from the gravity well? With a <a href="https://en.wikipedia.org/wiki/Specific_impulse" target="_blank" style="color: #0ff;">Specific Impulse</a> of around 400s, transit time will mean near-Earth asteroids are your best targets, and you will rely on contractors to supply your vehicle, crew, and tooling.
