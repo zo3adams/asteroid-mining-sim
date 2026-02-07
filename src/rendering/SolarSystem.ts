@@ -83,9 +83,14 @@ export class SolarSystem {
 
     // Initialize camera - start zoomed out for intro effect
     this.cameraDistance = this.INTRO_START_DISTANCE;
+    
+    // Use canvas dimensions for proper mobile portrait support
+    const width = canvas.clientWidth || window.innerWidth;
+    const height = canvas.clientHeight || window.innerHeight;
+    
     this.camera = new THREE.PerspectiveCamera(
       CAMERA_FOV,
-      window.innerWidth / window.innerHeight,
+      width / height,
       CAMERA_NEAR,
       CAMERA_FAR
     );
@@ -93,8 +98,8 @@ export class SolarSystem {
 
     // Initialize renderer
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setSize(width, height, false);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2 for mobile performance
 
     // Add lighting
     this.setupLighting();
@@ -830,9 +835,13 @@ export class SolarSystem {
   }
 
   private onWindowResize(): void {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    // Use canvas dimensions for proper mobile portrait support
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(width, height, false); // false = don't set canvas style
   }
 
   /**

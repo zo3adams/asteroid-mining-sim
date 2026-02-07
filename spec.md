@@ -85,6 +85,43 @@ The game calculates a **synodic period** (time between closest approaches) and u
 - Clean, informative displays
 - Educational tooltips and links
 
+### Responsive Layouts
+
+#### Landscape Mode (Desktop/Laptop/Tablet)
+Standard layout with side panels:
+- **Top bar**: Game title, date, speed controls, save URL button
+- **Left panel** (320px): Company status, active missions, tech tree, assets, storage, help, controls, search
+- **Center**: 3D solar system canvas (full height)
+- **Right panel** (320px): Target info, quick stats, hover info, market prices, flight log
+- **Bottom**: News ticker (70px)
+
+#### Portrait Mode (Mobile Phones < 768px)
+Vertical scrolling layout optimized for touch:
+1. **Top bar** (fixed): Game title, date, speed controls (compact)
+2. **Solar system canvas**: Full width, square aspect ratio (max 50% viewport height)
+3. **News ticker**: Full width below canvas
+4. **Left panel sections** (full width, scrollable):
+   - Company Status
+   - Active Missions + Plan Mission button
+   - Tech Tree (Level 2+)
+   - Owned Assets (Level 2+)
+   - Storage (Level 3+)
+   - Search box
+   - Help (always at bottom)
+5. **Right panel sections** (full width):
+   - Target Information
+   - Quick Stats
+   - Market Prices
+   - Flight Log
+
+**Mobile-specific adjustments:**
+- Modals expand to 95% width or full screen
+- Buttons are full width for easy touch
+- Contract/target/vendor cards stack vertically
+- Hover info section hidden (not useful with touch)
+- Controls section hidden (touch gestures are intuitive)
+- Canvas pixel ratio capped at 2x for performance
+
 ### Left Panel (Company & Controls)
 - **Company Status**: Balance, Reputation, Missions completed
 - **Active Missions**: List of in-progress missions with progress bars
