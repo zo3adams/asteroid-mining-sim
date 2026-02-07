@@ -41,6 +41,9 @@ const MUST_INCLUDE = [
   '16',     // Psyche - metal-rich, mission target
 ];
 
+// MPC designations 1-200 (includes Ceres, Pallas, Juno, Vesta, etc.)
+const MPC_1_TO_200 = Array.from({ length: 200 }, (_, i) => String(i + 1));
+
 /**
  * Query NASA for a list of asteroids
  */
@@ -97,16 +100,34 @@ async function queryAsteroids(limit: number): Promise<string[]> {
     console.warn('Failed to query MBA:', error);
   }
   
-  // Add must-include asteroids
-  for (const id of MUST_INCLUDE) {
-    if (!allIds.includes(id)) {
-      allIds.push(id);
+  // Collect priority asteroids first (MPC 1-200 and famous ones)
+  const priorityIds: string[] = [];
+  
+  // Add MPC 1-200 (Ceres, Pallas, Vesta, etc.) - these go first
+  console.log('Adding MPC designations 1-200...');
+  for (const id of MPC_1_TO_200) {
+    if (!priorityIds.includes(id)) {
+      priorityIds.push(id);
     }
   }
   
+  // Add must-include asteroids
+  for (const id of MUST_INCLUDE) {
+    if (!priorityIds.includes(id)) {
+      priorityIds.push(id);
+    }
+  }
+  
+  // Remove priority IDs from allIds to avoid duplicates
+  const remainingIds = allIds.filter(id => !priorityIds.includes(id));
+  
+  // Combine: priority first, then the rest
+  const combinedIds = [...priorityIds, ...remainingIds];
+  
   // Deduplicate and limit
-  const uniqueIds = [...new Set(allIds)];
+  const uniqueIds = [...new Set(combinedIds)];
   console.log(`\nTotal unique asteroids found: ${uniqueIds.length}`);
+  console.log(`  Priority asteroids (MPC 1-200 + famous): ${priorityIds.length}`);
   
   return uniqueIds.slice(0, limit);
 }
@@ -195,11 +216,12 @@ async function fetchAsteroidDetail(designation: string): Promise<AsteroidInfo | 
 }
 
 async function main() {
-  const TARGET_COUNT = 1000;
+  // 1000 base + up to 200 more from MPC 1-200 (some may overlap with MBA query)
+  const TARGET_COUNT = 1200;
   
   console.log('='.repeat(60));
   console.log('Fetching asteroid data from NASA JPL API');
-  console.log(`Target: ${TARGET_COUNT} asteroids`);
+  console.log(`Target: ~${TARGET_COUNT} asteroids (including MPC 1-200)`);
   console.log('='.repeat(60));
   console.log('');
   

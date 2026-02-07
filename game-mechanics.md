@@ -247,6 +247,37 @@ Examples that affect prices (announcements in news ticker):
 - Overflow sold at current market price automatically
 - Strategy: mine when prices low, sell when prices high
 
+### Asteroid Rendering & Labels ✅ IMPLEMENTED
+
+#### Dynamic Visibility System
+- **1000 asteroids** bundled in static data file (`src/data/asteroid-data.json`)
+- **36 asteroids rendered** at any time for performance
+- Visibility updates every 500ms based on camera position
+- Asteroids closest to camera target (by semi-major axis) are shown
+- Mined asteroids excluded from rendering pool
+
+#### Label Behavior
+| State | Label Visibility |
+|-------|------------------|
+| Default (no hover, no mission) | Hidden |
+| Mouse hover | Visible |
+| Active mission in progress | **Always visible** |
+| Mission completed | Returns to hidden (hover-only) |
+
+#### Active Mission Priority
+- Asteroids with active missions are **always rendered** regardless of camera position
+- They take priority slots; remaining slots filled by distance-based selection
+- When mission completes:
+  - Asteroid loses render priority (may disappear if camera far away)
+  - Label returns to hover-only visibility
+
+#### Search Integration
+- Search box has access to all 1000 asteroids
+- Selecting a non-rendered asteroid from search:
+  - Adds it to the scene immediately
+  - Zooms camera to that asteroid
+  - Displays news notification about discovery
+
 ---
 
 ## Tech Tree (PLANNED)

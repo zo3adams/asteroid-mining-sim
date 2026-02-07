@@ -15,7 +15,7 @@ import {
   ISS_DATA,
   MoonData,
 } from '../utils/Constants';
-import { orbitalPosition, randomAngle, auToRenderUnits } from '../utils/Math';
+import { orbitalPosition, randomAngle, auToRenderUnits, renderUnitsToAU } from '../utils/Math';
 import { TextureManager } from './TextureLoader';
 
 export class SolarSystem {
@@ -52,6 +52,13 @@ export class SolarSystem {
   private animationStartDistance = 0;
   private animationEndDistance = 0;
 
+  // Intro zoom effect
+  private isIntroZooming = false;
+  private introZoomStartTime = 0;
+  private readonly INTRO_ZOOM_DURATION = 4000; // 4 seconds
+  private readonly INTRO_START_DISTANCE = 1800; // Start zoomed way out
+  private readonly INTRO_END_DISTANCE = CAMERA_DEFAULT_DISTANCE;
+
   // Focus state
   private focusedObject: THREE.Mesh | null = null;
 
@@ -74,7 +81,8 @@ export class SolarSystem {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);
 
-    // Initialize camera
+    // Initialize camera - start zoomed out for intro effect
+    this.cameraDistance = this.INTRO_START_DISTANCE;
     this.camera = new THREE.PerspectiveCamera(
       CAMERA_FOV,
       window.innerWidth / window.innerHeight,
@@ -101,6 +109,9 @@ export class SolarSystem {
 
     // Set up event listeners
     this.setupEventListeners();
+    
+    // Start intro zoom
+    this.startIntroZoom();
   }
 
   private setupLighting(): void {
@@ -553,6 +564,7 @@ export class SolarSystem {
   }
 
   private onMouseDown(event: MouseEvent): void {
+    this.stopIntroZoom(); // Stop intro zoom on any mouse interaction
     this.previousMousePosition = { x: event.clientX, y: event.clientY };
   }
 
@@ -602,6 +614,7 @@ export class SolarSystem {
 
   private onMouseWheel(event: WheelEvent): void {
     event.preventDefault();
+    this.stopIntroZoom(); // Stop intro zoom on scroll
     this.cameraDistance += event.deltaY * 0.1;
     this.cameraDistance = Math.max(50, Math.min(2000, this.cameraDistance));
     this.updateCameraPosition();
@@ -766,6 +779,56 @@ export class SolarSystem {
     }
   }
 
+  /**
+   * Start the intro zoom effect
+   */
+  public startIntroZoom(): void {
+    this.isIntroZooming = true;
+    this.introZoomStartTime = performance.now();
+    this.cameraDistance = this.INTRO_START_DISTANCE;
+    this.updateCameraPosition();
+  }
+
+  /**
+   * Stop the intro zoom (user interaction)
+   */
+  public stopIntroZoom(): void {
+    if (this.isIntroZooming) {
+      this.isIntroZooming = false;
+      // Snap to end position
+      this.cameraDistance = this.INTRO_END_DISTANCE;
+      this.updateCameraPosition();
+    }
+  }
+
+  /**
+   * Update intro zoom animation
+   */
+  private updateIntroZoom(currentTime: number): void {
+    if (!this.isIntroZooming) return;
+
+    const elapsed = currentTime - this.introZoomStartTime;
+    const t = Math.min(1, elapsed / this.INTRO_ZOOM_DURATION);
+    
+    // Ease out cubic for smooth deceleration
+    const easeOut = 1 - Math.pow(1 - t, 3);
+    
+    this.cameraDistance = this.INTRO_START_DISTANCE + 
+      (this.INTRO_END_DISTANCE - this.INTRO_START_DISTANCE) * easeOut;
+    this.updateCameraPosition();
+
+    if (t >= 1) {
+      this.isIntroZooming = false;
+    }
+  }
+
+  /**
+   * Check if intro zoom is active
+   */
+  public isIntroZoomActive(): boolean {
+    return this.isIntroZooming;
+  }
+
   private onWindowResize(): void {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
@@ -788,6 +851,9 @@ export class SolarSystem {
   public update(deltaTime: number, timeScale: number = 1.0, currentTime: number = 0): void {
     // Apply time scale to animation speed
     const scaledDelta = deltaTime * timeScale;
+
+    // Update intro zoom
+    this.updateIntroZoom(currentTime);
 
     // Update camera animation
     this.updateCameraAnimation(currentTime);
@@ -917,6 +983,96 @@ export class SolarSystem {
     const earth = this.planets.get('Earth');
     if (!earth) return 0;
     return earth.userData.angle;
+  }
+
+  /**
+   * Remove an asteroid from the scene (for dynamic visibility management)
+   */
+  public removeAsteroid(asteroidId: string): void {
+    const asteroid = this.asteroids.get(asteroidId);
+    if (!asteroid) return;
+
+    // Remove mesh from scene
+    this.scene.remove(asteroid);
+    this.asteroids.delete(asteroidId);
+
+    // Remove label
+    const label = this.labels.get(asteroid.userData.name);
+    if (label) {
+      asteroid.remove(label);
+      this.labels.delete(asteroid.userData.name);
+    }
+
+    // Remove circle
+    const circle = this.circles.get(asteroidId);
+    if (circle) {
+      this.scene.remove(circle);
+      this.circles.delete(asteroidId);
+    }
+  }
+
+  /**
+   * Check if an asteroid is currently rendered
+   */
+  public hasAsteroid(asteroidId: string): boolean {
+    return this.asteroids.has(asteroidId);
+  }
+
+  /**
+   * Get the current camera target position in AU (approximate)
+   * Returns { x, y, z } in AU, and distance from origin
+   */
+  public getCameraInfo(): { targetAU: number; cameraDistance: number; position: THREE.Vector3 } {
+    // Convert camera target from render units back to AU
+    const targetDistanceUnits = Math.sqrt(
+      this.cameraTarget.x * this.cameraTarget.x + 
+      this.cameraTarget.z * this.cameraTarget.z
+    );
+    const targetAU = renderUnitsToAU(targetDistanceUnits);
+    
+    return {
+      targetAU,
+      cameraDistance: this.cameraDistance,
+      position: this.camera.position.clone(),
+    };
+  }
+
+  /**
+   * Get distances from camera to all rendered asteroids
+   * Returns array sorted by distance (closest first)
+   */
+  public getAsteroidDistancesFromCamera(): { id: string; distance: number }[] {
+    const cameraPos = this.camera.position;
+    const distances: { id: string; distance: number }[] = [];
+
+    this.asteroids.forEach((asteroid, id) => {
+      const dist = cameraPos.distanceTo(asteroid.position);
+      distances.push({ id, distance: dist });
+    });
+
+    return distances.sort((a, b) => a.distance - b.distance);
+  }
+
+  /**
+   * Get count of currently rendered asteroids
+   */
+  public getRenderedAsteroidCount(): number {
+    return this.asteroids.size;
+  }
+
+  /**
+   * Set label visibility for a specific asteroid by ID
+   */
+  public setLabelVisible(id: string, visible: boolean): void {
+    // Find asteroid to get its name
+    const asteroidMesh = this.asteroids.get(id);
+    if (asteroidMesh) {
+      const name = asteroidMesh.userData.name;
+      const label = this.labels.get(name);
+      if (label) {
+        label.visible = visible;
+      }
+    }
   }
 
   /**

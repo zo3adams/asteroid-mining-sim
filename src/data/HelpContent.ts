@@ -136,7 +136,7 @@ export const PROGRESSION_LEVELS: ProgressionLevel[] = [
 ];
 
 export const GAMEPLAY_WALKTHROUGH = `
-**Welcome to Asteroid Miner!**
+**Welcome to Asteroid Mining Sim!**
 
 You are the CEO of a fledgling asteroid mining company. Your goal is to build a profitable operation by securing contracts, launching missions, and extracting valuable resources from asteroids.
 

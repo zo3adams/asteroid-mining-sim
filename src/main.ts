@@ -112,6 +112,11 @@ class Game {
   private lastTickerUpdate = 0;
   private readonly TICKER_SPEED = 80; // pixels per second
   
+  // Dynamic asteroid visibility
+  private lastVisibilityUpdate = 0;
+  private readonly VISIBILITY_UPDATE_INTERVAL = 500; // ms between visibility checks
+  private readonly TARGET_VISIBLE_ASTEROIDS = 36;
+  
   // Search functionality
   private searchableBodies: SearchableBody[] = [];
   private searchSelectedIndex = -1;
@@ -552,6 +557,7 @@ class Game {
     const massStr = asteroid.mass ? formatMass(asteroid.mass) : 'Unknown';
 
     const wikiUrl = getAsteroidWikipediaUrl(asteroid.id, asteroid.name);
+    const jplUrl = `https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=${encodeURIComponent(asteroid.id)}`;
 
     targetInfo.innerHTML = `
       <p><strong style="color: #0ff; font-size: 14px;">${asteroid.name}</strong></p>
@@ -561,7 +567,11 @@ class Game {
       <p><span class="label">Est. Mass:</span> ${massStr}</p>
       <p><span class="label">Eccentricity:</span> ${asteroid.eccentricity.toFixed(3)}</p>
       <p><span class="label">Inclination:</span> ${asteroid.inclination.toFixed(1)}°</p>
-      <p style="margin-top: 10px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff;">Wikipedia ↗</a></p>
+      <p style="margin-top: 10px;">
+        <a href="${wikiUrl}" target="_blank" style="color: #0ff;">Wikipedia ↗</a>
+        &nbsp;|&nbsp;
+        <a href="${jplUrl}" target="_blank" style="color: #0ff;">JPL SBDB ↗</a>
+      </p>
     `;
   }
 
@@ -669,6 +679,7 @@ class Game {
       const diameterStr = asteroid.diameter ? formatDiameter(asteroid.diameter) : 'Unknown';
       const massStr = asteroid.mass ? formatMass(asteroid.mass) : 'Unknown';
       const wikiUrl = getAsteroidWikipediaUrl(asteroid.id, asteroid.name);
+      const jplUrl = `https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=${encodeURIComponent(asteroid.id)}`;
       
       // Check if asteroid has been mined
       const isMined = this.gameState.data.minedAsteroids.includes(userData.id);
@@ -683,7 +694,11 @@ class Game {
         <p><span class="label">Mass:</span> ${massStr}</p>
         <p><span class="label">From Earth:</span> ${distanceStr}</p>
         <p><span class="label">Status:</span> ${visitedHtml}</p>
-        <p style="margin-top: 5px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff; font-size: 11px;">Wiki ↗</a></p>
+        <p style="margin-top: 5px;">
+          <a href="${wikiUrl}" target="_blank" style="color: #0ff; font-size: 11px;">Wiki ↗</a>
+          &nbsp;|&nbsp;
+          <a href="${jplUrl}" target="_blank" style="color: #0ff; font-size: 11px;">JPL ↗</a>
+        </p>
       `;
     }
   }
@@ -1469,15 +1484,16 @@ class Game {
     title.textContent = phaseInfo.name;
     description.textContent = phaseInfo.description;
 
-    // Build asteroid info section with Wikipedia link
-    const asteroidWikiName = mission.asteroidName.replace(/\s+/g, '_');
-    const wikipediaUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(asteroidWikiName)}`;
+    // Build asteroid info section with Wikipedia and JPL links
+    const wikipediaUrl = `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(mission.asteroidName)}`;
+    const jplUrl = `https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=${encodeURIComponent(mission.asteroidId)}`;
     const distanceKm = mission.distanceAU ? (mission.distanceAU * AU_IN_KM).toFixed(0) : 'N/A';
     const diameterDisplay = asteroid?.diameter ? `${asteroid.diameter.toFixed(1)} km` : 'Unknown';
     const typeDisplay = asteroid?.taxonomicClass || 'Unknown';
     
     asteroidInfo.innerHTML = `
-      <strong>Target:</strong> <a href="${wikipediaUrl}" target="_blank" rel="noopener">${mission.asteroidName}</a><br>
+      <strong>Target:</strong> <a href="${wikipediaUrl}" target="_blank" rel="noopener">${mission.asteroidName}</a>
+      (<a href="${jplUrl}" target="_blank" rel="noopener" style="font-size: 11px;">JPL</a>)<br>
       <strong>Type:</strong> ${typeDisplay}-type &nbsp;|&nbsp; 
       <strong>Diameter:</strong> ${diameterDisplay} &nbsp;|&nbsp;
       <strong>Distance:</strong> ${mission.distanceAU?.toFixed(3) || 'N/A'} AU (${Number(distanceKm).toLocaleString()} km)
@@ -2727,6 +2743,11 @@ class Game {
     if (modal) {
       modal.classList.remove('visible');
     }
+    
+    // Trigger intro zoom effect for the new level
+    if (this.solarSystem) {
+      this.solarSystem.startIntroZoom();
+    }
   }
 
   private playLevelUpSound(_levelId: number): void {
@@ -3138,13 +3159,6 @@ class Game {
           }
         } else if (nextPhase === MissionPhase.LAUNCH) {
           this.addNewsItem(`Mission to ${mission.asteroidName} launching!`, 'market');
-          // Create ship when actually launching
-          if (this.solarSystem) {
-            const asteroid = this.asteroidData.get(mission.asteroidId);
-            if (asteroid) {
-              this.solarSystem.createMissionShip(mission.id, asteroid.semiMajorAxis);
-            }
-          }
         }
       } else {
         // Just update progress internally (don't trigger list rebuild)
@@ -3155,19 +3169,6 @@ class Game {
           needsUpdate = true;
         }
       }
-
-      // Update ship position (only for active flight phases)
-      if (this.solarSystem && [MissionPhase.OUTBOUND, MissionPhase.DRILLING, MissionPhase.INBOUND].includes(mission.currentPhase)) {
-        // Calculate flight progress (just the flight portion)
-        const flightStart = mission.launchTime + 
-          calculatePhaseDuration(MissionPhase.CONTRACT_SIGNED, mission.outboundDuration, mission.miningDuration, mission.returnDuration, 'Weekly') +
-          calculatePhaseDuration(MissionPhase.LAUNCH, mission.outboundDuration, mission.miningDuration, mission.returnDuration, 'Weekly');
-        const flightDuration = mission.outboundDuration + mission.miningDuration + mission.returnDuration;
-        const flightElapsed = Math.max(0, currentTime - flightStart);
-        const flightProgress = Math.min(1, flightElapsed / flightDuration);
-        
-        this.solarSystem.updateMissionShipProgress(mission.id, flightProgress);
-      }
     });
 
     if (needsUpdate) {
@@ -3176,11 +3177,6 @@ class Game {
   }
 
   private onMissionFailed(mission: Mission): void {
-    // Remove ship from scene
-    if (this.solarSystem) {
-      this.solarSystem.removeMissionShip(mission.id);
-    }
-    
     // Handle PAYLOAD_SEIZED - partial failure, crew survives but cargo lost
     if (mission.currentPhase === MissionPhase.PAYLOAD_SEIZED) {
       // No revenue, but increment mission count (experience gained)
@@ -3354,11 +3350,6 @@ class Game {
 
     // Update flight log display
     this.renderFlightLog();
-
-    // Remove ship from scene
-    if (this.solarSystem) {
-      this.solarSystem.removeMissionShip(mission.id);
-    }
     
     // Increment security relationship if security was hired
     if (mission.securityId) {
@@ -3817,9 +3808,101 @@ class Game {
       
       // Generate periodic news items
       this.updateNews();
+      
+      // Update asteroid visibility based on camera position (throttled)
+      this.updateAsteroidVisibility(currentTime);
     }
 
     requestAnimationFrame(this.gameLoop.bind(this));
+  }
+
+  /**
+   * Update which asteroids are visible based on camera position
+   * Keeps TARGET_VISIBLE_ASTEROIDS closest to camera visible
+   */
+  private updateAsteroidVisibility(currentTime: number): void {
+    // Throttle updates
+    if (currentTime - this.lastVisibilityUpdate < this.VISIBILITY_UPDATE_INTERVAL) {
+      return;
+    }
+    this.lastVisibilityUpdate = currentTime;
+
+    if (!this.solarSystem) return;
+
+    const cameraInfo = this.solarSystem.getCameraInfo();
+    const allAsteroids = staticAsteroidData as AsteroidInfo[];
+    
+    // Calculate distance from camera target (in AU) for each asteroid in our dataset
+    // Use semi-major axis as proxy for position
+    const targetAU = cameraInfo.targetAU || 1.5; // Default to asteroid belt if at origin
+    
+    // Get asteroids with active missions - these always stay visible
+    const activeMissionAsteroidIds = new Set(
+      this.gameState.data.activeMissions.map(m => m.asteroidId)
+    );
+    
+    const scored = allAsteroids
+      .filter(a => !this.gameState.data.minedAsteroids.includes(a.id)) // Exclude mined
+      .map(asteroid => ({
+        asteroid,
+        // Score based on distance from camera target AU
+        distance: Math.abs(asteroid.semiMajorAxis - targetAU),
+      }))
+      .sort((a, b) => a.distance - b.distance);
+
+    // Get the IDs that should be visible: active missions + closest N asteroids
+    const shouldBeVisible = new Set<string>(activeMissionAsteroidIds);
+    
+    // Fill remaining slots with closest asteroids
+    const slotsForDynamic = this.TARGET_VISIBLE_ASTEROIDS - activeMissionAsteroidIds.size;
+    let added = 0;
+    for (const { asteroid } of scored) {
+      if (added >= slotsForDynamic) break;
+      if (!shouldBeVisible.has(asteroid.id)) {
+        shouldBeVisible.add(asteroid.id);
+        added++;
+      }
+    }
+
+    // Get currently rendered asteroids
+    const currentlyRendered = new Set<string>();
+    this.asteroidData.forEach((_, id) => {
+      if (this.solarSystem!.hasAsteroid(id)) {
+        currentlyRendered.add(id);
+      }
+    });
+
+    // Remove asteroids that shouldn't be visible anymore
+    for (const id of currentlyRendered) {
+      if (!shouldBeVisible.has(id)) {
+        this.solarSystem.removeAsteroid(id);
+        this.asteroidData.delete(id);
+      }
+    }
+
+    // Add asteroids that should be visible but aren't
+    for (const id of shouldBeVisible) {
+      if (!currentlyRendered.has(id)) {
+        const asteroid = allAsteroids.find(a => a.id === id);
+        if (asteroid) {
+          // Add to data store
+          this.asteroidData.set(asteroid.id, asteroid);
+          
+          // Add to scene
+          const size = asteroid.diameter ? Math.max(0.5, asteroid.diameter / 20) : 1;
+          const type = (asteroid.taxonomicClass as 'C' | 'S' | 'M') || 'S';
+          this.solarSystem.addAsteroid(asteroid.id, asteroid.name, asteroid.semiMajorAxis, size, type);
+        }
+      }
+    }
+
+    // Ensure active mission asteroid labels are always visible
+    for (const id of activeMissionAsteroidIds) {
+      this.solarSystem.setLabelVisible(id, true);
+    }
+
+    // Update asteroid count if it changed
+    this.updateAsteroidCount();
   }
 
   public stop(): void {
