@@ -229,6 +229,6 @@ Github Copilt - lead developer and SRE
 
 
 ### Images
-- assets/images/vehicle_anomoly.png - picture of a space ship exploding to be used when a mission fails
-- assets/images/mining_red_asteroid.png - picture of mining on an asteroid to be used as an interstitial scene
-- assets/images/mining_jupiter_moon.png - picture of a mining rig on a moon of jupiter to be used as an interstitial scene
+- public/images/vehicle_anomoly.png - picture of a space ship exploding to be used when a mission fails
+- public/images/mining_red_asteroid.png - picture of mining on an asteroid to be used as an interstitial scene
+- public/images/mining_jupiter_moon.png - picture of a mining rig on a moon of jupiter to be used as an interstitial scene

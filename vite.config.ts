@@ -7,6 +7,13 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'three': ['three'],
+        },
+      },
+    },
   },
   server: {
     port: 3000,

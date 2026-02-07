@@ -373,16 +373,18 @@ export class SolarSystem {
     size: number,
     type: 'C' | 'S' | 'M'
   ): void {
-    const colorMap = {
+    const colorMap: Record<string, number> = {
       C: BODY_COLORS.ASTEROID_C,
       S: BODY_COLORS.ASTEROID_S,
       M: BODY_COLORS.ASTEROID_M,
     };
+    // Fallback to S-type color for unknown types
+    const color = colorMap[type] || BODY_COLORS.ASTEROID_S;
 
     // Medium detail for asteroids (balance between performance and quality)
     const geometry = new THREE.SphereGeometry(size, 32, 32);
     // Use textured material with fallback color
-    const material = this.textureManager.createAsteroidMaterial(type, colorMap[type]);
+    const material = this.textureManager.createAsteroidMaterial(type, color);
     const mesh = new THREE.Mesh(geometry, material);
 
     // Position at random point in orbit

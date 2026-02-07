@@ -544,6 +544,8 @@ class Game {
       this.displayPlanetInfo(userData);
     } else if (userData.type === 'sun') {
       this.displaySunInfo(userData);
+      // Easter egg: Allow selecting Sun for mission planning
+      this.gameState.selectAsteroid('sun');
     } else if (userData.type === 'moon' || userData.type === 'satellite') {
       this.displayMoonInfo(userData);
     }
@@ -580,6 +582,7 @@ class Game {
     if (!targetInfo) return;
 
     const wikiUrl = getPlanetWikipediaUrl(userData.name);
+    const jplUrl = 'https://ssd.jpl.nasa.gov/planets/phys_par.html';
     const diameter = PLANET_DIAMETERS[userData.name];
     const diameterStr = diameter ? formatDiameter(diameter) : 'Unknown';
 
@@ -589,7 +592,11 @@ class Game {
       <p><span class="label">Distance:</span> ${formatDistance(userData.orbit)}</p>
       <p><span class="label">Diameter:</span> ${diameterStr}</p>
       <p style="margin-top: 10px; color: #888;">Planets cannot be mined (yet)</p>
-      <p style="margin-top: 10px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff;">Wikipedia ↗</a></p>
+      <p style="margin-top: 10px;">
+        <a href="${wikiUrl}" target="_blank" style="color: #0ff;">Wikipedia ↗</a>
+        &nbsp;|&nbsp;
+        <a href="${jplUrl}" target="_blank" style="color: #0ff;">JPL Planets ↗</a>
+      </p>
     `;
   }
 
@@ -598,6 +605,7 @@ class Game {
     if (!targetInfo) return;
 
     const wikiUrl = getSunWikipediaUrl();
+    const jplUrl = 'https://ssd.jpl.nasa.gov/planets/phys_par.html';
     const diameterStr = formatDiameter(PLANET_DIAMETERS.Sun);
 
     targetInfo.innerHTML = `
@@ -607,7 +615,11 @@ class Game {
       <p><span class="label">Diameter:</span> ${diameterStr}</p>
       <p><span class="label">Mass:</span> 1.989 × 10³⁰ kg</p>
       <p style="margin-top: 10px; color: #888;">The center of our solar system</p>
-      <p style="margin-top: 10px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff;">Wikipedia ↗</a></p>
+      <p style="margin-top: 10px;">
+        <a href="${wikiUrl}" target="_blank" style="color: #0ff;">Wikipedia ↗</a>
+        &nbsp;|&nbsp;
+        <a href="${jplUrl}" target="_blank" style="color: #0ff;">JPL Planets ↗</a>
+      </p>
     `;
   }
 
@@ -644,6 +656,7 @@ class Game {
 
     if (userData.type === 'sun') {
       const wikiUrl = getSunWikipediaUrl();
+      const jplUrl = 'https://ssd.jpl.nasa.gov/planets/phys_par.html';
       const diameterStr = formatDiameter(PLANET_DIAMETERS.Sun);
       hoverInfo.innerHTML = `
         <p><strong style="color: #ff0;">Sun</strong></p>
@@ -651,12 +664,13 @@ class Game {
         <p><span class="label">Diameter:</span> ${diameterStr}</p>
         <p><span class="label">Distance:</span> 0.00 AU</p>
         <p><span class="label">Visited:</span> <span style="color: #f00;">No</span></p>
-        <p style="margin-top: 5px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff; font-size: 11px;">Wiki ↗</a></p>
+        <p style="margin-top: 5px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff; font-size: 11px;">Wiki ↗</a> | <a href="${jplUrl}" target="_blank" style="color: #0ff; font-size: 11px;">JPL ↗</a></p>
       `;
     } else if (userData.type === 'planet') {
       // Calculate distance from Earth (simplified - assuming Earth is at 1 AU)
       const distanceFromEarth = Math.abs(userData.orbit - 1.0);
       const wikiUrl = getPlanetWikipediaUrl(userData.name);
+      const jplUrl = 'https://ssd.jpl.nasa.gov/planets/phys_par.html';
       const diameter = PLANET_DIAMETERS[userData.name];
       const diameterStr = diameter ? formatDiameter(diameter) : 'Unknown';
       hoverInfo.innerHTML = `
@@ -665,7 +679,7 @@ class Game {
         <p><span class="label">Diameter:</span> ${diameterStr}</p>
         <p><span class="label">From Earth:</span> ${formatDistance(distanceFromEarth)}</p>
         <p><span class="label">Visited:</span> <span style="color: #f00;">No</span></p>
-        <p style="margin-top: 5px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff; font-size: 11px;">Wiki ↗</a></p>
+        <p style="margin-top: 5px;"><a href="${wikiUrl}" target="_blank" style="color: #0ff; font-size: 11px;">Wiki ↗</a> | <a href="${jplUrl}" target="_blank" style="color: #0ff; font-size: 11px;">JPL ↗</a></p>
       `;
     } else if (userData.type === 'asteroid') {
       const asteroid = this.asteroidData.get(userData.id);
@@ -722,6 +736,28 @@ class Game {
     this.availableContracts = generateContracts(4, this.gameState.data.market);
     
     if (selectedId) {
+      // Easter egg: Sun mission
+      if (selectedId === 'sun') {
+        // Create fake asteroid entry for the Sun
+        this.currentMissionAsteroid = {
+          id: 'sun',
+          name: 'The Sun',
+          fullName: 'Sol (The Sun)',
+          semiMajorAxis: 0.01, // Very close
+          eccentricity: 0,
+          inclination: 0,
+          diameter: 1392700, // km
+          mass: 1.989e30, // kg
+          albedo: null,
+          taxonomicClass: 'G', // G-type star, lol
+          absoluteMagnitude: -26.74,
+        };
+        this.cameFromPreselected = true;
+        this.addNewsItem('🌞 Planning a mission to the Sun? Bold strategy...', 'flavor');
+        this.openMissionModal(true);
+        return;
+      }
+      
       // Check if this asteroid has already been mined - if so, don't use it
       const isMined = this.gameState.data.minedAsteroids.includes(selectedId);
       if (!isMined) {
@@ -3084,6 +3120,12 @@ class Game {
             mission.providerReliability,
             mission.crewReliability
           );
+          
+          // Easter egg: Sun missions always fail during outbound
+          if (mission.asteroidId === 'sun' && mission.currentPhase === MissionPhase.OUTBOUND) {
+            nextPhase = MissionPhase.IN_FLIGHT_ANOMALY;
+            this.addNewsItem(`☀️ Mission to the Sun: "It's getting really hot in here..." - Last transmission from Captain ${mission.captainName}`, 'critical');
+          }
           
           // Check for pirate attacks at Level 3+ when entering certain phases
           if (playerLevel >= 3) {
